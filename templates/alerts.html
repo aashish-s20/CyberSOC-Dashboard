@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% block title %}SOC Alert Center - CyberSOC{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 animate-fade-in">
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-shield-fill-exclamation text-danger me-2"></i>SOC Alert Center</h1>
+            <p class="text-secondary mb-0">Monitor, filter, and escalate anomalies and threat triggers from active monitoring modules</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('main.alerts_export') }}" class="btn btn-outline-success">
+                <i class="bi bi-download me-2"></i> Export Alerts CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Console -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 mb-4">
+        <form method="GET" action="{{ url_for('main.alerts') }}" class="row g-3 align-items-end">
+            <div class="col-12 col-md-4">
+                <label class="form-label text-secondary small fw-medium">Search Keyword</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-dark border-white border-opacity-10 text-muted"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" class="form-control text-light bg-dark border-white border-opacity-10" placeholder="Search description, source..." value="{{ current_search }}">
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label text-secondary small fw-medium">Severity</label>
+                <select name="severity" class="form-select text-light bg-dark border-white border-opacity-10">
+                    <option value="">All Severities</option>
+                    <option value="Critical" {% if current_severity == 'Critical' %}selected{% endif %}>Critical</option>
+                    <option value="High" {% if current_severity == 'High' %}selected{% endif %}>High</option>
+                    <option value="Medium" {% if current_severity == 'Medium' %}selected{% endif %}>Medium</option>
+                    <option value="Low" {% if current_severity == 'Low' %}selected{% endif %}>Low</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label text-secondary small fw-medium">Status</label>
+                <select name="status" class="form-select text-light bg-dark border-white border-opacity-10">
+                    <option value="">All Statuses</option>
+                    <option value="New" {% if current_status == 'New' %}selected{% endif %}>New</option>
+                    <option value="Acknowledged" {% if current_status == 'Acknowledged' %}selected{% endif %}>Acknowledged</option>
+                    <option value="Closed" {% if current_status == 'Closed' %}selected{% endif %}>Closed</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label text-secondary small fw-medium">Sort By</label>
+                <select name="sort" class="form-select text-light bg-dark border-white border-opacity-10">
+                    <option value="desc" {% if current_sort == 'desc' %}selected{% endif %}>Newest First</option>
+                    <option value="asc" {% if current_sort == 'asc' %}selected{% endif %}>Oldest First</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+                    <i class="bi bi-funnel-fill me-1"></i> Filter
+                </button>
+                <a href="{{ url_for('main.alerts') }}" class="btn btn-secondary py-2" title="Reset Filters">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Alerts Table -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="border-bottom border-white border-opacity-10 text-muted">
+                        <th style="width: 80px;">ID</th>
+                        <th style="width: 160px;">Timestamp (UTC)</th>
+                        <th style="width: 150px;">Source Module</th>
+                        <th style="width: 180px;">Alert Type</th>
+                        <th style="width: 110px;">Severity</th>
+                        <th>Description</th>
+                        <th style="width: 120px;">Status</th>
+                        <th style="width: 250px;" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in alerts %}
+                    <tr class="border-bottom border-white border-opacity-5">
+                        <td class="text-muted fw-bold">#{{ a.id }}</td>
+                        <td class="text-secondary font-monospace">{{ a.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>
+                            <span class="badge bg-secondary bg-opacity-25 text-light border border-white border-opacity-10 px-2 py-1">
+                                {{ a.source_module }}
+                            </span>
+                        </td>
+                        <td class="text-light fw-medium">{{ a.alert_type }}</td>
+                        <td>
+                            {% if a.severity == 'Critical' %}
+                            <span class="badge bg-danger text-white border border-danger border-opacity-50 px-2 py-1 fw-bold w-100 text-center">Critical</span>
+                            {% elif a.severity == 'High' %}
+                            <span class="badge bg-danger bg-opacity-15 text-danger border border-danger border-opacity-25 px-2 py-1 w-100 text-center">High</span>
+                            {% elif a.severity == 'Medium' %}
+                            <span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-25 px-2 py-1 w-100 text-center">Medium</span>
+                            {% else %}
+                            <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 px-2 py-1 w-100 text-center">Low</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-light-gray" title="{{ a.description }}">{{ a.description }}</td>
+                        <td>
+                            {% if a.status == 'New' %}
+                            <span class="text-danger fw-bold"><i class="bi bi-record-circle-fill me-1 small"></i> New</span>
+                            {% elif a.status == 'Acknowledged' %}
+                            <span class="text-warning fw-semibold"><i class="bi bi-circle-fill me-1 small"></i> Acked</span>
+                            {% else %}
+                            <span class="text-muted"><i class="bi bi-check-circle-fill me-1 small"></i> Closed</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex justify-content-end gap-2">
+                                {% if a.status == 'New' %}
+                                <form action="{{ url_for('main.alert_acknowledge', alert_id=a.id) }}" method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-warning btn-sm px-2 py-1" title="Acknowledge Alert">
+                                        <i class="bi bi-eye"></i> Ack
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if a.status != 'Closed' %}
+                                <form action="{{ url_for('main.alert_close', alert_id=a.id) }}" method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm px-2 py-1" title="Close Alert">
+                                        <i class="bi bi-x-circle"></i> Close
+                                    </button>
+                                </form>
+                                <button type="button" class="btn btn-outline-danger btn-sm px-2 py-1" data-bs-toggle="modal" data-bs-target="#escalateModal{{ a.id }}" title="Escalate to Incident">
+                                    <i class="bi bi-shield-alert"></i> Escalate
+                                </button>
+                                {% else %}
+                                <span class="text-muted small">No actions</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Escalation Modal -->
+                    {% if a.status != 'Closed' %}
+                    <div class="modal fade" id="escalateModal{{ a.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4">
+                                <div class="modal-header border-bottom border-white border-opacity-10 p-4">
+                                    <h5 class="modal-title fw-bold"><i class="bi bi-shield-alert text-danger me-2"></i>Escalate Alert to Incident</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <form action="{{ url_for('main.incident_create') }}" method="POST">
+                                    <div class="modal-body p-4">
+                                        <input type="hidden" name="related_alert_id" value="{{ a.id }}">
+                                        <div class="mb-3">
+                                            <label class="form-label text-secondary small fw-medium">Incident Title</label>
+                                            <input type="text" class="form-control text-light bg-dark-card border-white border-opacity-10" name="title" value="Escalated Incident: {{ a.alert_type }} [Alert #{{ a.id }}]" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label text-secondary small fw-medium">Investigation Description</label>
+                                            <textarea class="form-control text-light bg-dark-card border-white border-opacity-10" name="description" rows="4" required>{{ a.description }} (Source Module: {{ a.source_module }}). Triggered at: {{ a.timestamp.strftime('%Y-%m-%d %H:%M:%S') }} UTC.</textarea>
+                                        </div>
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-6">
+                                                <label class="form-label text-secondary small fw-medium">Priority</label>
+                                                <select name="priority" class="form-select text-light bg-dark-card border-white border-opacity-10">
+                                                    <option value="Critical" {% if a.severity == 'Critical' %}selected{% endif %}>Critical</option>
+                                                    <option value="High" {% if a.severity == 'High' %}selected{% endif %}>High</option>
+                                                    <option value="Medium" {% if a.severity == 'Medium' %}selected{% endif %}>Medium</option>
+                                                    <option value="Low" {% if a.severity == 'Low' %}selected{% endif %}>Low</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label text-secondary small fw-medium">Assign Owner</label>
+                                                <select name="assigned_user_id" class="form-select text-light bg-dark-card border-white border-opacity-10">
+                                                    <option value="">Unassigned</option>
+                                                    <option value="{{ current_user.id }}" selected>{{ current_user.username }} (You)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1 text-warning"></i> Creating this incident will automatically update this alert's status to <strong>Acknowledged</strong>.</p>
+                                    </div>
+                                    <div class="modal-footer border-top border-white border-opacity-10 p-4">
+                                        <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-danger px-4 fw-bold">Open Incident Case</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-secondary">No alert triggers found matching filter criteria.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

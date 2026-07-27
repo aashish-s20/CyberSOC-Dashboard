@@ -248,6 +248,42 @@
                 <p class="text-muted small mb-0">Feeds synchronized</p>
             </div>
         </div>
+
+        <!-- 17. Active Alerts -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Active Alerts</span>
+                    <i class="bi bi-bell-fill text-warning fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2">{{ active_alerts_count }}</h3>
+                <p class="text-muted small mb-0">Active SOC alert logs</p>
+            </div>
+        </div>
+
+        <!-- 18. Open Incidents -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Open Incidents</span>
+                    <i class="bi bi-shield-fill-exclamation text-danger fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2">{{ open_incidents_count }}</h3>
+                <p class="text-muted small mb-0">Cases under investigation</p>
+            </div>
+        </div>
+
+        <!-- 19. Critical Alerts -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Critical Alerts</span>
+                    <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-danger mb-2">{{ critical_alerts_count }}</h3>
+                <p class="text-muted small mb-0">Critical severity alerts</p>
+            </div>
+        </div>
     </div>
 
     <!-- Quick Actions Panel -->
@@ -303,13 +339,14 @@
             </div>
         </div>
 
-        <!-- 3. Incident Overview -->
+        <!-- 3. Incident Trend Chart -->
         <div class="col-12 col-lg-6">
             <div class="card bg-dark-card p-4 border border-white border-opacity-5">
-                <h3 class="h6 fw-bold text-white mb-3"><i class="bi bi-clipboard-check text-primary me-2"></i>Incident Overview (Severity Breakdown)</h3>
+                <h3 class="h6 fw-bold text-white mb-3"><i class="bi bi-graph-up text-primary me-2"></i>Incident Trend Chart (Weekly Volume)</h3>
                 <div class="chart-container" style="position: relative; height: 260px; width: 100%;">
                     <canvas id="incidentOverviewChart"></canvas>
                 </div>
+                <div id="incident-trend-holder" data-labels='{{ incident_trend_labels | tojson }}' data-values='{{ incident_trend_data | tojson }}' class="d-none"></div>
             </div>
         </div>
 

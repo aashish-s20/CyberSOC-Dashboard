@@ -5,11 +5,14 @@ from io import StringIO
 from flask import Blueprint, render_template, redirect, url_for, request, jsonify, Response, abort, flash
 from flask_login import login_required, current_user
 from models.db import db
+from models.user import User
 from models.scan import NetworkScan, PortResult, DNSResult
 from models.monitor import MonitoringSession, CapturedPacket
 from models.analyzer import LogFile, LogEvent
 from models.vault import VaultFile, IntegrityCheck
 from models.threat import ThreatIndicator, ThreatIntelHistory
+from models.alert import Alert
+from models.incident import Incident, IncidentNote
 from services.threat_service import lookup_threat_intel
 from services.monitor_service import sniffer_manager
 from services.log_parser import parse_log_content
@@ -68,6 +71,23 @@ def dashboard():
     high_risk_findings = ThreatIntelHistory.query.filter(ThreatIntelHistory.risk_level.in_(['High', 'Critical'])).count()
     recent_ioc_lookup = ThreatIntelHistory.query.order_by(ThreatIntelHistory.search_time.desc()).first()
 
+    # Phase 8 Alert & Incident Metrics
+    active_alerts_count = Alert.query.filter(Alert.status.in_(['New', 'Acknowledged'])).count()
+    open_incidents_count = Incident.query.filter(Incident.status.in_(['Open', 'In Progress'])).count()
+    critical_alerts_count = Alert.query.filter_by(severity='Critical').count()
+    
+    # Weekly Incident Trend Data
+    from datetime import date, timedelta
+    today = date.today()
+    incident_trend_labels = []
+    incident_trend_data = []
+    for i in range(6, -1, -1):
+        day = today - timedelta(days=i)
+        day_str = day.strftime('%Y-%m-%d')
+        count = Incident.query.filter(db.func.strftime('%Y-%m-%d', Incident.created_date) == day_str).count()
+        incident_trend_labels.append(day.strftime('%b %d'))
+        incident_trend_data.append(count)
+
     return render_template(
         'dashboard.html',
         user=current_user,
@@ -87,7 +107,12 @@ def dashboard():
         recent_vault_files=recent_vault_files,
         total_ioc_searches=total_ioc_searches,
         high_risk_findings=high_risk_findings,
-        recent_ioc_lookup=recent_ioc_lookup
+        recent_ioc_lookup=recent_ioc_lookup,
+        active_alerts_count=active_alerts_count,
+        open_incidents_count=open_incidents_count,
+        critical_alerts_count=critical_alerts_count,
+        incident_trend_labels=incident_trend_labels,
+        incident_trend_data=incident_trend_data
     )
 
 @main_bp.route('/scanner')
@@ -178,6 +203,19 @@ def run_scan():
                     status=item["status"]
                 )
                 db.session.add(p_res)
+            
+            # Alert generation: Port Scan identified open ports
+            open_ports = [item["port"] for item in results["results"] if item["status"] == "Open"]
+            if open_ports:
+                alert_desc = f"Port scan on target '{target}' identified open ports: {', '.join(map(str, open_ports))}."
+                alert = Alert(
+                    source_module='Network Scanner',
+                    alert_type='Open Port Detected',
+                    severity='Medium',
+                    description=alert_desc,
+                    status='New'
+                )
+                db.session.add(alert)
         elif scan_type == 'DNS Lookup' and "records" in results:
             for record_type, records in results["records"].items():
                 for value in records:
@@ -187,6 +225,16 @@ def run_scan():
                         value=value
                     )
                     db.session.add(dns_res)
+        elif scan_type == 'Host Discovery' and results.get("reachable"):
+            alert_desc = f"Target host '{target}' responded to reachability discovery checks successfully."
+            alert = Alert(
+                source_module='Network Scanner',
+                alert_type='Host Responding',
+                severity='Low',
+                description=alert_desc,
+                status='New'
+            )
+            db.session.add(alert)
 
         db.session.commit()
         return jsonify({"success": True, "scan_id": new_scan.id, "results": results})
@@ -297,6 +345,19 @@ def monitor_stop():
             db.session.commit()
             total_pkts = session.total_packets
             ifaces = session.interface
+            
+            # Generate alert
+            severity = 'Medium' if total_pkts > 50 else 'Low'
+            alert_desc = f"Network monitor session completed on interface '{ifaces}'. Captured {total_pkts} packets."
+            alert = Alert(
+                source_module='Network Monitor',
+                alert_type='Traffic Capture Summary',
+                severity=severity,
+                description=alert_desc,
+                status='New'
+            )
+            db.session.add(alert)
+            db.session.commit()
         else:
             total_pkts = 0
             ifaces = "Unknown"
@@ -479,6 +540,17 @@ def analyzer_upload():
                 is_threat=e["is_threat"]
             )
             db.session.add(evt)
+            
+            # Generate alert for threat events (especially Critical/High severity ones)
+            if e["is_threat"]:
+                alert = Alert(
+                    source_module='Log Analyzer',
+                    alert_type='Threat Log Event',
+                    severity=e["severity"],
+                    description=f"Log file '{file.filename}' contains threat signature: {e['message']} (Source: {e['source']}).",
+                    status='New'
+                )
+                db.session.add(alert)
             
         db.session.commit()
         return jsonify({"success": True, "file_id": logfile_record.id})
@@ -795,6 +867,18 @@ def vault_verify(file_id):
         status=status
     )
     db.session.add(check)
+    
+    if not is_verified:
+        alert_desc = f"File integrity check FAILED for secure file '{vault_file.filename}'. Checked file: '{file.filename}'. Checksum mismatch detected."
+        alert = Alert(
+            source_module='SecureVault',
+            alert_type='Integrity Violation',
+            severity='Critical',
+            description=alert_desc,
+            status='New'
+        )
+        db.session.add(alert)
+        
     db.session.commit()
     
     if is_verified:
@@ -887,8 +971,28 @@ def threat_search():
         result = lookup_threat_intel(query, current_user.id)
         if result['status'] == 'Malicious':
             flash(f"Threat Flagged: IOC '{query}' is classified as Malicious ({result['category']}) with risk level: {result['risk_level']}.", "error")
+            # Generate alert
+            alert = Alert(
+                source_module='Threat Intelligence',
+                alert_type='Malicious IOC Query',
+                severity=result['risk_level'],
+                description=f"Analyst queried malicious IOC '{query}' ({result['ioc_type']}). Reputation: {result['reputation_score']}/100. Category: {result['category']}.",
+                status='New'
+            )
+            db.session.add(alert)
+            db.session.commit()
         elif result['status'] == 'Suspicious':
             flash(f"Warning: IOC '{query}' is classified as Suspicious ({result['category']}) with risk level: {result['risk_level']}.", "warning")
+            # Generate alert
+            alert = Alert(
+                source_module='Threat Intelligence',
+                alert_type='Malicious IOC Query',
+                severity=result['risk_level'],
+                description=f"Analyst queried suspicious IOC '{query}' ({result['ioc_type']}). Reputation: {result['reputation_score']}/100. Category: {result['category']}.",
+                status='New'
+            )
+            db.session.add(alert)
+            db.session.commit()
         else:
             flash(f"IOC Analysis Completed: '{query}' is classified as Safe.", "success")
     except ValueError as e:
@@ -929,21 +1033,298 @@ def threat_export_history():
 @main_bp.route('/alerts')
 @login_required
 def alerts():
+    q = request.args.get('q', '').strip()
+    severity = request.args.get('severity', '').strip()
+    status = request.args.get('status', '').strip()
+    sort = request.args.get('sort', 'desc').strip()
+    
+    query = Alert.query
+    
+    if q:
+        query = query.filter(
+            (Alert.description.ilike(f"%{q}%")) |
+            (Alert.alert_type.ilike(f"%{q}%")) |
+            (Alert.source_module.ilike(f"%{q}%"))
+        )
+    if severity:
+        query = query.filter_by(severity=severity)
+    if status:
+        query = query.filter_by(status=status)
+        
+    if sort == 'asc':
+        query = query.order_by(Alert.timestamp.asc())
+    else:
+        query = query.order_by(Alert.timestamp.desc())
+        
+    alerts_list = query.all()
+    
     return render_template(
-        'coming_soon.html',
-        module_name="Alerts",
-        description="Configure rule triggers, routing actions, and notification systems for critical system and threat events.",
-        status="Coming Soon"
+        'alerts.html',
+        alerts=alerts_list,
+        current_search=q,
+        current_severity=severity,
+        current_status=status,
+        current_sort=sort
+    )
+
+@main_bp.route('/alerts/acknowledge/<int:alert_id>', methods=['POST'])
+@login_required
+def alert_acknowledge(alert_id):
+    alert = db.session.get(Alert, alert_id)
+    if not alert:
+        abort(404)
+    alert.status = 'Acknowledged'
+    db.session.commit()
+    flash(f"Alert #{alert.id} acknowledged successfully.", "success")
+    return redirect(url_for('main.alerts'))
+
+@main_bp.route('/alerts/close/<int:alert_id>', methods=['POST'])
+@login_required
+def alert_close(alert_id):
+    alert = db.session.get(Alert, alert_id)
+    if not alert:
+        abort(404)
+    alert.status = 'Closed'
+    db.session.commit()
+    flash(f"Alert #{alert.id} closed successfully.", "success")
+    return redirect(url_for('main.alerts'))
+
+@main_bp.route('/alerts/export')
+@login_required
+def alerts_export():
+    alerts_list = Alert.query.order_by(Alert.timestamp.desc()).all()
+    
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['Alert ID', 'Timestamp', 'Source Module', 'Alert Type', 'Severity', 'Description', 'Status'])
+    for a in alerts_list:
+        cw.writerow([
+            a.id,
+            a.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            a.source_module,
+            a.alert_type,
+            a.severity,
+            a.description,
+            a.status
+        ])
+        
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=alert_history.csv"}
     )
 
 @main_bp.route('/incidents')
 @login_required
 def incidents():
+    priority = request.args.get('priority', '').strip()
+    status = request.args.get('status', '').strip()
+    
+    query = Incident.query
+    if priority:
+        query = query.filter_by(priority=priority)
+    if status:
+        query = query.filter_by(status=status)
+        
+    incidents_list = query.order_by(Incident.created_date.desc()).all()
+    users = User.query.all()
+    active_alerts = Alert.query.filter(Alert.status.in_(['New', 'Acknowledged'])).all()
+    
     return render_template(
-        'coming_soon.html',
-        module_name="Incidents",
-        description="Track active cases, assignments, resolution notes, and investigation tasks for security breaches.",
-        status="Coming Soon"
+        'incidents.html',
+        incidents=incidents_list,
+        users=users,
+        active_alerts=active_alerts,
+        current_priority=priority,
+        current_status=status
+    )
+
+@main_bp.route('/incidents/create', methods=['POST'])
+@login_required
+def incident_create():
+    title = request.form.get('title', '').strip()
+    description = request.form.get('description', '').strip()
+    priority = request.form.get('priority', 'Medium').strip()
+    related_alert_id = request.form.get('related_alert_id', '').strip()
+    assigned_user_id = request.form.get('assigned_user_id', '').strip()
+    
+    if not title or not description:
+        flash("Incident creation error: Title and Description are required.", "error")
+        return redirect(url_for('main.incidents'))
+        
+    try:
+        alert_id = int(related_alert_id) if related_alert_id else None
+        user_id = int(assigned_user_id) if assigned_user_id else None
+        
+        incident = Incident(
+            title=title,
+            description=description,
+            priority=priority,
+            related_alert_id=alert_id,
+            assigned_user_id=user_id,
+            status='Open'
+        )
+        db.session.add(incident)
+        db.session.flush() # Yields incident.id
+        
+        # Log initial history note
+        note = IncidentNote(
+            incident_id=incident.id,
+            user_id=current_user.id,
+            note="Incident created and investigation opened."
+        )
+        db.session.add(note)
+        
+        # Auto-acknowledge related alert
+        if alert_id:
+            alert = db.session.get(Alert, alert_id)
+            if alert and alert.status == 'New':
+                alert.status = 'Acknowledged'
+                note_alert = IncidentNote(
+                    incident_id=incident.id,
+                    user_id=current_user.id,
+                    note=f"Associated alert #{alert.id} ('{alert.alert_type}') status updated to Acknowledged."
+                )
+                db.session.add(note_alert)
+                
+        db.session.commit()
+        flash(f"Incident #{incident.id} created successfully.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Incident creation failed: {str(e)}", "error")
+        
+    return redirect(url_for('main.incidents'))
+
+@main_bp.route('/incidents/<int:incident_id>')
+@login_required
+def incident_detail(incident_id):
+    incident = db.session.get(Incident, incident_id)
+    if not incident:
+        abort(404)
+    users = User.query.all()
+    return render_template('incident_detail.html', incident=incident, users=users)
+
+@main_bp.route('/incidents/update/<int:incident_id>', methods=['POST'])
+@login_required
+def incident_update(incident_id):
+    incident = db.session.get(Incident, incident_id)
+    if not incident:
+        abort(404)
+        
+    title = request.form.get('title', '').strip()
+    description = request.form.get('description', '').strip()
+    priority = request.form.get('priority', '').strip()
+    status = request.form.get('status', '').strip()
+    assigned_user_id = request.form.get('assigned_user_id', '').strip()
+    
+    if not title or not description or not priority or not status:
+        flash("Incident update error: Title, Description, Priority, and Status are required.", "error")
+        return redirect(url_for('main.incident_detail', incident_id=incident.id))
+        
+    try:
+        user_id = int(assigned_user_id) if assigned_user_id else None
+        
+        # Build update audit log note
+        changes = []
+        if incident.title != title:
+            changes.append(f"Title changed to '{title}'")
+        if incident.description != description:
+            changes.append("Description updated")
+        if incident.priority != priority:
+            changes.append(f"Priority changed from '{incident.priority}' to '{priority}'")
+        if incident.status != status:
+            changes.append(f"Status changed from '{incident.status}' to '{status}'")
+        if incident.assigned_user_id != user_id:
+            old_name = incident.assigned_user.username if incident.assigned_user else "Unassigned"
+            new_user = db.session.get(User, user_id) if user_id else None
+            new_name = new_user.username if new_user else "Unassigned"
+            changes.append(f"Assigned owner changed from '{old_name}' to '{new_name}'")
+            
+        incident.title = title
+        incident.description = description
+        incident.priority = priority
+        
+        # Handle closed date timestamping
+        from datetime import datetime, timezone
+        if status == 'Closed' and incident.status != 'Closed':
+            incident.closed_date = datetime.now(timezone.utc)
+        elif status != 'Closed':
+            incident.closed_date = None
+            
+        incident.status = status
+        incident.assigned_user_id = user_id
+        
+        if changes:
+            note_content = "Incident parameters updated: " + ", ".join(changes) + "."
+            note = IncidentNote(
+                incident_id=incident.id,
+                user_id=current_user.id,
+                note=note_content
+            )
+            db.session.add(note)
+            
+        db.session.commit()
+        flash(f"Incident #{incident.id} updated successfully.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Incident update failed: {str(e)}", "error")
+        
+    return redirect(url_for('main.incident_detail', incident_id=incident.id))
+
+@main_bp.route('/incidents/note/<int:incident_id>', methods=['POST'])
+@login_required
+def incident_add_note(incident_id):
+    incident = db.session.get(Incident, incident_id)
+    if not incident:
+        abort(404)
+        
+    note_text = request.form.get('note', '').strip()
+    if not note_text:
+        flash("Note input cannot be empty.", "error")
+        return redirect(url_for('main.incident_detail', incident_id=incident.id))
+        
+    try:
+        note = IncidentNote(
+            incident_id=incident.id,
+            user_id=current_user.id,
+            note=note_text
+        )
+        db.session.add(note)
+        db.session.commit()
+        flash("Investigation note appended successfully.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Failed to append note: {str(e)}", "error")
+        
+    return redirect(url_for('main.incident_detail', incident_id=incident.id))
+
+@main_bp.route('/incidents/export')
+@login_required
+def incidents_export():
+    incidents_list = Incident.query.order_by(Incident.created_date.desc()).all()
+    
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['Incident ID', 'Title', 'Description', 'Priority', 'Status', 'Related Alert ID', 'Assigned User', 'Created Date', 'Closed Date'])
+    for i in incidents_list:
+        cw.writerow([
+            i.id,
+            i.title,
+            i.description,
+            i.priority,
+            i.status,
+            i.related_alert_id or 'None',
+            i.assigned_user.username if i.assigned_user else 'Unassigned',
+            i.created_date.strftime('%Y-%m-%d %H:%M:%S'),
+            i.closed_date.strftime('%Y-%m-%d %H:%M:%S') if i.closed_date else 'Active'
+        ])
+        
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=incident_history.csv"}
     )
 
 @main_bp.route('/reports')

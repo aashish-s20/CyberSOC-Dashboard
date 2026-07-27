@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+
+{% block title %}Incident Management Cases - CyberSOC{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 animate-fade-in">
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-shield-alert text-primary me-2"></i>Incident Management</h1>
+            <p class="text-secondary mb-0">Track active security incident cases, owner assignments, and timeline investigation audits</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createIncidentModal">
+                <i class="bi bi-plus-lg me-2"></i> Create Incident Case
+            </button>
+            <a href="{{ url_for('main.incidents_export') }}" class="btn btn-outline-success">
+                <i class="bi bi-download me-2"></i> Export Incidents CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Console -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 mb-4">
+        <form method="GET" action="{{ url_for('main.incidents') }}" class="row g-3 align-items-end">
+            <div class="col-12 col-sm-4">
+                <label class="form-label text-secondary small fw-medium">Priority Level</label>
+                <select name="priority" class="form-select text-light bg-dark border-white border-opacity-10">
+                    <option value="">All Priorities</option>
+                    <option value="Critical" {% if current_priority == 'Critical' %}selected{% endif %}>Critical</option>
+                    <option value="High" {% if current_priority == 'High' %}selected{% endif %}>High</option>
+                    <option value="Medium" {% if current_priority == 'Medium' %}selected{% endif %}>Medium</option>
+                    <option value="Low" {% if current_priority == 'Low' %}selected{% endif %}>Low</option>
+                </select>
+            </div>
+            <div class="col-12 col-sm-4">
+                <label class="form-label text-secondary small fw-medium">Status State</label>
+                <select name="status" class="form-select text-light bg-dark border-white border-opacity-10">
+                    <option value="">All Statuses</option>
+                    <option value="Open" {% if current_status == 'Open' %}selected{% endif %}>Open</option>
+                    <option value="In Progress" {% if current_status == 'In Progress' %}selected{% endif %}>In Progress</option>
+                    <option value="Resolved" {% if current_status == 'Resolved' %}selected{% endif %}>Resolved</option>
+                    <option value="Closed" {% if current_status == 'Closed' %}selected{% endif %}>Closed</option>
+                </select>
+            </div>
+            <div class="col-12 col-sm-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+                    <i class="bi bi-funnel-fill me-1"></i> Filter Cases
+                </button>
+                <a href="{{ url_for('main.incidents') }}" class="btn btn-secondary py-2" title="Reset Filters">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Incidents Table -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="border-bottom border-white border-opacity-10 text-muted">
+                        <th style="width: 80px;">Case ID</th>
+                        <th style="width: 300px;">Incident Title</th>
+                        <th style="width: 120px;">Priority</th>
+                        <th style="width: 130px;">Status</th>
+                        <th style="width: 150px;">Assigned Owner</th>
+                        <th style="width: 150px;">Created Date (UTC)</th>
+                        <th style="width: 150px;">Closed Date (UTC)</th>
+                        <th style="width: 150px;" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inc in incidents %}
+                    <tr class="border-bottom border-white border-opacity-5">
+                        <td class="text-muted fw-bold">INC-{{ inc.id }}</td>
+                        <td class="text-light fw-semibold text-truncate" style="max-width: 280px;" title="{{ inc.title }}">{{ inc.title }}</td>
+                        <td>
+                            {% if inc.priority == 'Critical' %}
+                            <span class="badge bg-danger text-white border border-danger border-opacity-50 px-2 py-1 fw-bold w-100 text-center">Critical</span>
+                            {% elif inc.priority == 'High' %}
+                            <span class="badge bg-danger bg-opacity-15 text-danger border border-danger border-opacity-25 px-2 py-1 w-100 text-center">High</span>
+                            {% elif inc.priority == 'Medium' %}
+                            <span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-25 px-2 py-1 w-100 text-center">Medium</span>
+                            {% else %}
+                            <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 px-2 py-1 w-100 text-center">Low</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if inc.status == 'Open' %}
+                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2 py-1 w-100 text-center"><i class="bi bi-envelope-open me-1 small"></i> Open</span>
+                            {% elif inc.status == 'In Progress' %}
+                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-1 w-100 text-center"><i class="bi bi-clock me-1 small"></i> In Progress</span>
+                            {% elif inc.status == 'Resolved' %}
+                            <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-2 py-1 w-100 text-center"><i class="bi bi-patch-check me-1 small"></i> Resolved</span>
+                            {% else %}
+                            <span class="badge bg-secondary bg-opacity-25 text-muted border border-white border-opacity-10 px-2 py-1 w-100 text-center"><i class="bi bi-lock-fill me-1 small"></i> Closed</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="text-secondary fw-semibold">
+                                {% if inc.assigned_user %}
+                                    <i class="bi bi-person me-1"></i> {{ inc.assigned_user.username }}
+                                {% else %}
+                                    <i class="bi bi-person-dash me-1 text-muted"></i> <span class="text-muted small">Unassigned</span>
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td class="text-secondary font-monospace">{{ inc.created_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td class="text-secondary font-monospace">
+                            {% if inc.closed_date %}
+                                {{ inc.closed_date.strftime('%Y-%m-%d %H:%M') }}
+                            {% else %}
+                                <span class="text-muted small">Active</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex justify-content-end">
+                                <a href="{{ url_for('main.incident_detail', incident_id=inc.id) }}" class="btn btn-outline-primary btn-sm px-3 py-1">
+                                    <i class="bi bi-folder2-open me-1"></i> View Case
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-secondary">No incident cases found matching filter criteria.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Create Incident Modal -->
+<div class="modal fade" id="createIncidentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4">
+            <div class="modal-header border-bottom border-white border-opacity-10 p-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-plus-lg text-primary me-2"></i>Create Incident Case</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('main.incident_create') }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Case Title</label>
+                        <input type="text" class="form-control text-light bg-dark-card border-white border-opacity-10" name="title" placeholder="E.g. Investigate DDoS Traffic Spikes on Gateway" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Case Description</label>
+                        <textarea class="form-control text-light bg-dark-card border-white border-opacity-10" name="description" rows="4" placeholder="Detail anomalous activities, targeted assets, or suspicious indicator logs..." required></textarea>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label text-secondary small fw-medium">Priority</label>
+                            <select name="priority" class="form-select text-light bg-dark-card border-white border-opacity-10">
+                                <option value="Critical">Critical</option>
+                                <option value="High">High</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-secondary small fw-medium">Assign Owner</label>
+                            <select name="assigned_user_id" class="form-select text-light bg-dark-card border-white border-opacity-10">
+                                <option value="">Unassigned</option>
+                                {% for u in users %}
+                                <option value="{{ u.id }}" {% if u.id == current_user.id %}selected{% endif %}>{{ u.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label text-secondary small fw-medium">Link Related Alert (Optional)</label>
+                        <select name="related_alert_id" class="form-select text-light bg-dark-card border-white border-opacity-10">
+                            <option value="">No linked alert</option>
+                            {% for a in active_alerts %}
+                            <option value="{{ a.id }}">[Alert #{{ a.id }}] ({{ a.source_module }}) {{ a.alert_type }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-white border-opacity-10 p-4">
+                    <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold">Create Incident</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

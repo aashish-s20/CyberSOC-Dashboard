@@ -97,36 +97,40 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 3. Incident Overview (Severity Breakdown) Chart
+    // 3. Incident Trend Chart
     const incidentOverviewCtx = document.getElementById('incidentOverviewChart');
     if (incidentOverviewCtx) {
+        const incidentTrendHolder = document.getElementById('incident-trend-holder');
+        let trendLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        let trendValues = [0, 0, 0, 0, 0, 0, 0];
+        if (incidentTrendHolder) {
+            trendLabels = JSON.parse(incidentTrendHolder.getAttribute('data-labels') || '[]');
+            trendValues = JSON.parse(incidentTrendHolder.getAttribute('data-values') || '[]');
+        }
         new Chart(incidentOverviewCtx, {
-            type: 'doughnut',
+            type: 'line',
             data: {
-                labels: ['Critical', 'High', 'Medium', 'Low'],
+                labels: trendLabels,
                 datasets: [{
-                    data: [3, 8, 24, 65],
-                    backgroundColor: [
-                        chartColors.danger,
-                        chartColors.warning,
-                        chartColors.blue,
-                        chartColors.success
-                    ],
-                    borderColor: '#121826',
-                    borderWidth: 2
+                    label: 'Incidents Raised',
+                    data: trendValues,
+                    borderColor: chartColors.blue,
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2,
+                    pointBackgroundColor: chartColors.blue
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            color: chartColors.text,
-                            font: { family: 'Inter', size: 11 }
-                        }
-                    }
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text, font: { family: 'Inter', size: 9 } } },
+                    y: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text, font: { family: 'Inter', size: 9 }, stepSize: 1 } }
                 }
             }
         });

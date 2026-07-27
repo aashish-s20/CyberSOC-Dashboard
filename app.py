@@ -9,6 +9,8 @@ from models.monitor import MonitoringSession, CapturedPacket
 from models.analyzer import LogFile, LogEvent
 from models.vault import VaultFile, IntegrityCheck
 from models.threat import ThreatIndicator, ThreatIntelHistory
+from models.alert import Alert
+from models.incident import Incident, IncidentNote
 from routes.auth import auth_bp
 from routes.main import main_bp
 from routes.errors import errors_bp
@@ -45,6 +47,7 @@ def create_app(config_class=Config):
         db.create_all()
         seed_default_user()
         seed_threat_indicators()
+        seed_default_alerts()
         
     return app
 
@@ -117,6 +120,50 @@ def seed_threat_indicators():
             db.session.add(ind)
         db.session.commit()
         print("[DATABASE] Default Threat Indicators successfully seeded.")
+
+def seed_default_alerts():
+    default_alert = Alert.query.first()
+    if not default_alert:
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc)
+        alerts = [
+            Alert(
+                timestamp=now - timedelta(hours=5),
+                source_module='SecureVault',
+                alert_type='Integrity Violation',
+                severity='Critical',
+                description='Integrity verification failed for secure file top_secret.txt. Checksum mismatch detected.',
+                status='New'
+            ),
+            Alert(
+                timestamp=now - timedelta(hours=10),
+                source_module='Log Analyzer',
+                alert_type='Threat Log Event',
+                severity='High',
+                description='Detected critical security event: SQL Injection attack attempt.',
+                status='Acknowledged'
+            ),
+            Alert(
+                timestamp=now - timedelta(hours=15),
+                source_module='Network Scanner',
+                alert_type='Open Port Detected',
+                severity='Medium',
+                description='Target target audit completed. Identified suspicious open ports: 23/telnet, 445/microsoft-ds.',
+                status='Closed'
+            ),
+            Alert(
+                timestamp=now - timedelta(hours=24),
+                source_module='Threat Intelligence',
+                alert_type='Malicious IOC Query',
+                severity='High',
+                description='Queried Malicious IP address 198.51.100.45. Reputation: 15/100. Category: Botnet.',
+                status='New'
+            )
+        ]
+        for a in alerts:
+            db.session.add(a)
+        db.session.commit()
+        print("[DATABASE] Default Alerts successfully seeded.")
 
 app = create_app()
 
