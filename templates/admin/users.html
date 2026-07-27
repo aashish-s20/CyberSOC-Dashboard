@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+
+{% block title %}User Management - CyberSOC{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 animate-fade-in">
+    <!-- Navigation Back -->
+    <div class="mb-4">
+        <a href="{{ url_for('main.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3">
+            <i class="bi bi-arrow-left me-2"></i> Back to Admin Dashboard
+        </a>
+    </div>
+
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-people-fill text-primary me-2"></i>User Management</h1>
+            <p class="text-secondary mb-0">Manage system analysts, provisioning, access permissions, and roles policy configurations</p>
+        </div>
+        <div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                <i class="bi bi-person-plus-fill me-2"></i> Provision New User
+            </button>
+        </div>
+    </div>
+
+    <!-- User Directory Table -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="border-bottom border-white border-opacity-10 text-muted">
+                        <th style="width: 70px;">ID</th>
+                        <th>Username</th>
+                        <th>Email Address</th>
+                        <th style="width: 160px;">SOC Role</th>
+                        <th style="width: 120px;">Status</th>
+                        <th style="width: 160px;">Created Date</th>
+                        <th style="width: 160px;">Last Login</th>
+                        <th style="width: 250px;" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr class="border-bottom border-white border-opacity-5">
+                        <td class="text-muted fw-bold">#{{ u.id }}</td>
+                        <td>
+                            <span class="text-light fw-bold">
+                                {{ u.username }}
+                                {% if u.id == current_user.id %}
+                                <span class="badge bg-primary bg-opacity-20 text-primary border border-primary border-opacity-20 ms-1">You</span>
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td class="text-secondary">{{ u.email }}</td>
+                        <td>
+                            {% if u.role == 'SOC Manager' %}
+                            <span class="badge bg-primary bg-opacity-15 text-primary border border-primary border-opacity-25 px-2 py-1 w-100 text-center">SOC Manager</span>
+                            {% elif u.role == 'Security Engineer' %}
+                            <span class="badge bg-info bg-opacity-15 text-info border border-info border-opacity-25 px-2 py-1 w-100 text-center">Security Engineer</span>
+                            {% else %}
+                            <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 px-2 py-1 w-100 text-center">SOC Analyst</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.status == 'Active' %}
+                            <span class="text-success"><i class="bi bi-circle-fill me-1 small"></i> Active</span>
+                            {% else %}
+                            <span class="text-danger"><i class="bi bi-circle-fill me-1 small"></i> Disabled</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted font-monospace">{{ u.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td class="text-muted font-monospace">
+                            {% if u.last_login %}
+                                {{ u.last_login.strftime('%Y-%m-%d %H:%M') }}
+                            {% else %}
+                                <span class="text-secondary small">Never</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex justify-content-end gap-2">
+                                <button class="btn btn-outline-primary btn-sm px-2 py-1" data-bs-toggle="modal" data-bs-target="#editUserModal{{ u.id }}">
+                                    <i class="bi bi-pencil-square"></i> Edit
+                                </button>
+                                
+                                {% if u.id != current_user.id %}
+                                <form action="{{ url_for('main.admin_user_status', user_id=u.id) }}" method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-warning btn-sm px-2 py-1">
+                                        {% if u.status == 'Active' %}Disable{% else %}Enable{% endif %}
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('main.admin_user_delete', user_id=u.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you absolutely sure you want to permanently delete user account: {{ u.username }}?');">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm px-2 py-1">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span class="text-muted small px-2">Locked</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Edit User Modal -->
+                    <div class="modal fade" id="editUserModal{{ u.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4">
+                                <div class="modal-header border-bottom border-white border-opacity-10 p-4">
+                                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square text-primary me-2"></i>Edit User: {{ u.username }}</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <form action="{{ url_for('main.admin_user_edit', user_id=u.id) }}" method="POST">
+                                    <div class="modal-body p-4">
+                                        <div class="mb-3">
+                                            <label class="form-label text-secondary small fw-medium">Email Address</label>
+                                            <input type="email" class="form-control text-light bg-dark-card border-white border-opacity-10" name="email" value="{{ u.email }}" required>
+                                        </div>
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-6">
+                                                <label class="form-label text-secondary small fw-medium">SOC Role</label>
+                                                <select name="role" class="form-select text-light bg-dark-card border-white border-opacity-10" {% if u.id == current_user.id %}disabled{% endif %}>
+                                                    <option value="Administrator" {% if u.role == 'Administrator' %}selected{% endif %}>Administrator</option>
+                                                    <option value="SOC Manager" {% if u.role == 'SOC Manager' %}selected{% endif %}>SOC Manager</option>
+                                                    <option value="Security Engineer" {% if u.role == 'Security Engineer' %}selected{% endif %}>Security Engineer</option>
+                                                    <option value="SOC Analyst" {% if u.role == 'SOC Analyst' %}selected{% endif %}>SOC Analyst</option>
+                                                </select>
+                                                {% if u.id == current_user.id %}
+                                                <input type="hidden" name="role" value="{{ u.role }}">
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label text-secondary small fw-medium">Status</label>
+                                                <select name="status" class="form-select text-light bg-dark-card border-white border-opacity-10" {% if u.id == current_user.id %}disabled{% endif %}>
+                                                    <option value="Active" {% if u.status == 'Active' %}selected{% endif %}>Active</option>
+                                                    <option value="Disabled" {% if u.status == 'Disabled' %}selected{% endif %}>Disabled</option>
+                                                </select>
+                                                {% if u.id == current_user.id %}
+                                                <input type="hidden" name="status" value="{{ u.status }}">
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="mb-0">
+                                            <label class="form-label text-secondary small fw-medium">Reset Password (Optional)</label>
+                                            <input type="password" class="form-control text-light bg-dark-card border-white border-opacity-10" name="password" placeholder="Leave blank to keep existing password">
+                                            <small class="text-muted d-block mt-1">Must be at least 8 characters long.</small>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-top border-white border-opacity-10 p-4">
+                                        <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-primary px-4 fw-bold">Save Changes</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4">
+            <div class="modal-header border-bottom border-white border-opacity-10 p-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-plus-fill text-primary me-2"></i>Provision New SOC User</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('main.admin_user_add') }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Username</label>
+                        <input type="text" class="form-control text-light bg-dark-card border-white border-opacity-10" name="username" placeholder="E.g. jsmith" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Email Address</label>
+                        <input type="email" class="form-control text-light bg-dark-card border-white border-opacity-10" name="email" placeholder="E.g. jsmith@cybersoc.lan" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Initial Password</label>
+                        <input type="password" class="form-control text-light bg-dark-card border-white border-opacity-10" name="password" placeholder="Must be at least 8 characters" required>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label text-secondary small fw-medium">SOC Role</label>
+                            <select name="role" class="form-select text-light bg-dark-card border-white border-opacity-10">
+                                <option value="Administrator">Administrator</option>
+                                <option value="SOC Manager">SOC Manager</option>
+                                <option value="Security Engineer">Security Engineer</option>
+                                <option value="SOC Analyst" selected>SOC Analyst</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-secondary small fw-medium">Status</label>
+                            <select name="status" class="form-select text-light bg-dark-card border-white border-opacity-10">
+                                <option value="Active" selected>Active</option>
+                                <option value="Disabled">Disabled</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-white border-opacity-10 p-4">
+                    <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold">Provision Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

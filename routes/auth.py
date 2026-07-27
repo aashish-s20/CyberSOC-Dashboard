@@ -19,17 +19,32 @@ def login():
         
         if user and user.check_password(password):
             if user.status != 'Active':
+                from models.audit import AuditLog
+                log = AuditLog(user_id=user.id, action='Authentication Locked', details=f"Blocked login attempt for disabled user account: {user.username}.", ip_address=request.remote_addr)
+                db.session.add(log)
+                db.session.commit()
                 flash('This account is disabled. Contact system administrator.', 'error')
                 return redirect(url_for('auth.login'))
                 
             login_user(user)
             # Update last login time
             user.last_login = datetime.now(timezone.utc)
+            
+            # Log successful authentication
+            from models.audit import AuditLog
+            log = AuditLog(user_id=user.id, action='Authentication Success', details=f"User {user.username} successfully logged in.", ip_address=request.remote_addr)
+            db.session.add(log)
+            
             db.session.commit()
             
             flash(f'Welcome back, {user.username}!', 'success')
             return redirect(url_for('main.dashboard'))
         else:
+            # Log failed authentication
+            from models.audit import AuditLog
+            log = AuditLog(user_id=None, action='Authentication Failure', details=f"Failed login attempt for username: {username}.", ip_address=request.remote_addr)
+            db.session.add(log)
+            db.session.commit()
             flash('Invalid username or password.', 'error')
             
     return render_template('login.html')
@@ -67,6 +82,13 @@ def register():
         new_user.set_password(password)
         
         db.session.add(new_user)
+        db.session.flush() # Yields new_user.id
+        
+        # Log self-registration
+        from models.audit import AuditLog
+        log = AuditLog(user_id=new_user.id, action='User Self-Registration', details=f"New user {new_user.username} registered with role: {new_user.role}.", ip_address=request.remote_addr)
+        db.session.add(log)
+        
         db.session.commit()
         
         flash('Account registered successfully! You can now log in.', 'success')
@@ -77,6 +99,12 @@ def register():
 @auth_bp.route('/logout')
 @login_required
 def logout():
+    # Log logout event
+    from models.audit import AuditLog
+    log = AuditLog(user_id=current_user.id, action='Authentication Logout', details=f"User {current_user.username} logged out.", ip_address=request.remote_addr)
+    db.session.add(log)
+    db.session.commit()
+    
     logout_user()
     flash('You have been logged out.', 'success')
     return redirect(url_for('main.landing'))

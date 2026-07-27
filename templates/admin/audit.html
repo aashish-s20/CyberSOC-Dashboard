@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}System Audit Logs - CyberSOC{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 animate-fade-in">
+    <!-- Navigation Back -->
+    <div class="mb-4">
+        <a href="{{ url_for('main.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3">
+            <i class="bi bi-arrow-left me-2"></i> Back to Admin Dashboard
+        </a>
+    </div>
+
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-journal-code text-primary me-2"></i>System Audit Logs</h1>
+            <p class="text-secondary mb-0">Auditable history logs of system operations, console activities, scan tasks, and security events</p>
+        </div>
+        <div>
+            <a href="{{ url_for('main.admin_audit_export') }}" class="btn btn-success">
+                <i class="bi bi-file-earmark-spreadsheet-fill me-2"></i> Export logs (CSV)
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Console -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 mb-4">
+        <form method="GET" action="{{ url_for('main.admin_audit') }}">
+            <div class="row g-3">
+                <div class="col-12 col-md-5">
+                    <label class="form-label text-secondary small fw-medium">Search Keyword</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark border-white border-opacity-10 text-muted"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control text-light bg-dark border-white border-opacity-10" name="q" value="{{ current_search }}" placeholder="Search action, details or username...">
+                    </div>
+                </div>
+
+                <div class="col-12 col-sm-6 col-md-4">
+                    <label class="form-label text-secondary small fw-medium">Filter Action Type</label>
+                    <select name="action_filter" class="form-select text-light bg-dark border-white border-opacity-10">
+                        <option value="">-- All Actions --</option>
+                        {% for action in actions_list %}
+                        <option value="{{ action }}" {% if action == current_action %}selected{% endif %}>{{ action }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-12 col-sm-6 col-md-3 d-flex align-items-end gap-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel-fill me-2"></i> Filter Logs
+                    </button>
+                    <a href="{{ url_for('main.admin_audit') }}" class="btn btn-outline-secondary px-3">
+                        <i class="bi bi-x-circle"></i>
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Audit Logs Directory -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="border-bottom border-white border-opacity-10 text-muted">
+                        <th style="width: 180px;">Timestamp</th>
+                        <th style="width: 140px;">Operator</th>
+                        <th style="width: 220px;">Operation Action</th>
+                        <th>Activity Details</th>
+                        <th style="width: 140px;" class="text-end">IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in logs %}
+                    <tr class="border-bottom border-white border-opacity-5">
+                        <td class="text-muted font-monospace">{{ l.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>
+                            {% if l.user %}
+                            <span class="text-light fw-bold">
+                                {{ l.user.username }}
+                                <span class="d-block small text-muted font-monospace" style="font-size: 0.75rem;">{{ l.user.role }}</span>
+                            </span>
+                            {% else %}
+                            <span class="text-secondary small font-monospace"><i class="bi bi-gear-fill me-1"></i> System</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if 'Failure' in l.action or 'Locked' in l.action or 'Failed' in l.action %}
+                            <span class="badge bg-danger bg-opacity-15 text-danger border border-danger border-opacity-25 px-2 py-1 w-100 text-start">{{ l.action }}</span>
+                            {% elif 'Success' in l.action or 'Created' in l.action %}
+                            <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 px-2 py-1 w-100 text-start">{{ l.action }}</span>
+                            {% else %}
+                            <span class="badge bg-primary bg-opacity-15 text-primary border border-primary border-opacity-25 px-2 py-1 w-100 text-start">{{ l.action }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-secondary">{{ l.details }}</td>
+                        <td class="text-end font-monospace text-muted">{{ l.ip_address or 'N/A' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-5">
+                            <i class="bi bi-journal-x fs-1 d-block mb-3 opacity-50"></i> No system logs recorded matching the criteria.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

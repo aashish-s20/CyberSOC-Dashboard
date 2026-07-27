@@ -53,6 +53,7 @@
                         <i class="bi bi-house-door"></i> Dashboard
                     </a>
                 </li>
+                {% if current_user.role in ['Administrator', 'SOC Manager', 'Security Engineer'] %}
                 <li class="{% if request.endpoint == 'main.scanner' %}active{% endif %}">
                     <a href="{{ url_for('main.scanner') }}">
                         <i class="bi bi-globe"></i> Network Scanner
@@ -73,6 +74,7 @@
                         <i class="bi bi-lock"></i> SecureVault
                     </a>
                 </li>
+                {% endif %}
                 <li class="{% if request.endpoint == 'main.threats' %}active{% endif %}">
                     <a href="{{ url_for('main.threats') }}">
                         <i class="bi bi-globe-americas"></i> Threat Intelligence
@@ -93,6 +95,32 @@
                         <i class="bi bi-bar-chart"></i> Reports
                     </a>
                 </li>
+                {% if current_user.role in ['Administrator', 'Security Engineer'] %}
+                <li class="{% if request.endpoint == 'main.settings' %}active{% endif %}">
+                    <a href="{{ url_for('main.settings') }}">
+                        <i class="bi bi-gear"></i> Settings
+                    </a>
+                </li>
+                {% endif %}
+                {% if current_user.role == 'Administrator' %}
+                <li class="{% if request.endpoint == 'main.admin_dashboard' %}active{% endif %}">
+                    <a href="{{ url_for('main.admin_dashboard') }}">
+                        <i class="bi bi-shield-lock"></i> Admin Panel
+                    </a>
+                </li>
+                <li class="{% if request.endpoint == 'main.admin_users' %}active{% endif %}">
+                    <a href="{{ url_for('main.admin_users') }}">
+                        <i class="bi bi-people"></i> User Management
+                    </a>
+                </li>
+                {% endif %}
+                {% if current_user.role in ['Administrator', 'SOC Manager'] %}
+                <li class="{% if request.endpoint == 'main.admin_audit' %}active{% endif %}">
+                    <a href="{{ url_for('main.admin_audit') }}">
+                        <i class="bi bi-journal-code"></i> Audit Logs
+                    </a>
+                </li>
+                {% endif %}
                 
                 <!-- FUTURE_MODULES_SIDEBAR_HOOK: Hook for future security modules (e.g. scanner, logs, analysis) -->
                 

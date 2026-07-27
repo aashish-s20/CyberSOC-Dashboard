@@ -11,6 +11,7 @@ from models.vault import VaultFile, IntegrityCheck
 from models.threat import ThreatIndicator, ThreatIntelHistory
 from models.alert import Alert
 from models.incident import Incident, IncidentNote
+from models.audit import AuditLog
 from routes.auth import auth_bp
 from routes.main import main_bp
 from routes.errors import errors_bp
@@ -52,7 +53,19 @@ def create_app(config_class=Config):
     return app
 
 def seed_default_user():
-    # Verify if manager user already exists
+    # 0. Administrator
+    default_admin = User.query.filter_by(username='admin').first()
+    if not default_admin:
+        admin = User(
+            username='admin',
+            email='admin@cybersoc.lan',
+            role='Administrator',
+            status='Active'
+        )
+        admin.set_password('Admin@123')
+        db.session.add(admin)
+
+    # 1. SOC Manager
     default_manager = User.query.filter_by(username='manager').first()
     if not default_manager:
         manager = User(
@@ -63,8 +76,45 @@ def seed_default_user():
         )
         manager.set_password('Manager@123')
         db.session.add(manager)
+        
+    # 2. Security Engineer
+    default_engineer = User.query.filter_by(username='engineer').first()
+    if not default_engineer:
+        engineer = User(
+            username='engineer',
+            email='engineer@cybersoc.lan',
+            role='Security Engineer',
+            status='Active'
+        )
+        engineer.set_password('Engineer@123')
+        db.session.add(engineer)
+        
+    # 3. SOC Analyst
+    default_analyst = User.query.filter_by(username='analyst').first()
+    if not default_analyst:
+        analyst = User(
+            username='analyst',
+            email='analyst@cybersoc.lan',
+            role='SOC Analyst',
+            status='Active'
+        )
+        analyst.set_password('Analyst@123')
+        db.session.add(analyst)
+        
+    db.session.commit()
+    
+    # Audit log seeding if empty
+    first_log = AuditLog.query.first()
+    if not first_log:
+        log = AuditLog(
+            action='System Initialization',
+            details='Default demo accounts and security configurations seeded successfully.',
+            ip_address='127.0.0.1'
+        )
+        db.session.add(log)
         db.session.commit()
-        print("[DATABASE] Default SOC Manager account successfully seeded.")
+        
+    print("[DATABASE] Default demo accounts successfully seeded.")
 
 def seed_threat_indicators():
     default_indicator = ThreatIndicator.query.first()

@@ -13,6 +13,7 @@ from models.vault import VaultFile, IntegrityCheck
 from models.threat import ThreatIndicator, ThreatIntelHistory
 from models.alert import Alert
 from models.incident import Incident, IncidentNote
+from models.audit import AuditLog
 from services.threat_service import lookup_threat_intel
 from services.monitor_service import sniffer_manager
 from services.log_parser import parse_log_content
@@ -29,6 +30,91 @@ from services.scanner_utils import (
 )
 
 main_bp = Blueprint('main', __name__)
+
+from functools import wraps
+def roles_required(*roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                return abort(401)
+            if current_user.role not in roles:
+                return abort(403)
+            if current_user.status != 'Active':
+                return abort(403)
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+@main_bp.before_request
+def check_rbac_limits():
+    if not request.endpoint:
+        return
+
+    # Exclude public endpoints
+    if request.endpoint in ['main.landing']:
+        return
+
+    # Only enforce for main blueprint
+    if not request.endpoint.startswith('main.'):
+        return
+
+    # If guest user, let @login_required decorators do redirect to login page
+    if not current_user.is_authenticated:
+        return
+
+    # Block any disabled user account
+    if current_user.status != 'Active':
+        return abort(403)
+
+    role = current_user.role
+
+    # 1. Administrator gets full administrative access to everything
+    if role == 'Administrator':
+        return
+
+    endpoint = request.endpoint
+
+    # 2. SOC Manager access policy
+    manager_allowed = [
+        'main.dashboard',
+        'main.scanner', 'main.scan_detail', 'main.export_scans',
+        'main.monitor', 'main.monitor_detail', 'main.export_monitor_session',
+        'main.analyzer', 'main.analyzer_session', 'main.analyzer_export',
+        'main.vault', 'main.vault_download_raw', 'main.vault_export',
+        'main.threats', 'main.threat_search', 'main.threat_export_history',
+        'main.alerts', 'main.alert_acknowledge', 'main.alert_close', 'main.alerts_export',
+        'main.incidents', 'main.incident_create', 'main.incident_detail', 'main.incident_update', 'main.incident_add_note', 'main.incidents_export',
+        'main.reports',
+        'main.admin_audit', 'main.admin_audit_export'
+    ]
+    if role == 'SOC Manager':
+        if endpoint not in manager_allowed:
+            return abort(403)
+        return
+
+    # 3. Security Engineer access policy
+    if role == 'Security Engineer':
+        # Deny Admin Panel & User Management & Audit Logs (starts with main.admin_)
+        if endpoint.startswith('main.admin_'):
+            return abort(403)
+        return
+
+    # 4. SOC Analyst access policy
+    analyst_allowed = [
+        'main.dashboard',
+        'main.threats', 'main.threat_search', 'main.threat_export_history',
+        'main.alerts', 'main.alerts_export',
+        'main.incidents', 'main.incident_detail', 'main.incident_update', 'main.incident_add_note', 'main.incidents_export',
+        'main.reports'
+    ]
+    if role == 'SOC Analyst':
+        if endpoint not in analyst_allowed:
+            return abort(403)
+        return
+
+    # Lock down any other unknown role status
+    return abort(403)
 
 @main_bp.route('/')
 def landing():
@@ -236,6 +322,7 @@ def run_scan():
             )
             db.session.add(alert)
 
+        log_audit_entry('Scanner Run', f"Ran {scan_type} scan targeting {target}.")
         db.session.commit()
         return jsonify({"success": True, "scan_id": new_scan.id, "results": results})
     except Exception as e:
@@ -301,6 +388,7 @@ def monitor_start():
 
         # Start thread
         sniffer_manager.start_monitoring(interface, session.id)
+        log_audit_entry('Monitor Capture Started', f"Started packet capture session #{session.id} on interface '{interface}'.")
         return jsonify({
             "success": True,
             "session_id": session.id,
@@ -362,6 +450,7 @@ def monitor_stop():
             total_pkts = 0
             ifaces = "Unknown"
 
+        log_audit_entry('Monitor Capture Stopped', f"Stopped packet capture session #{session_id}. Captured {total_pkts} packets.")
         return jsonify({
             "success": True,
             "session_id": session_id,
@@ -552,6 +641,7 @@ def analyzer_upload():
                 )
                 db.session.add(alert)
             
+        log_audit_entry('Log Ingestion', f"Ingested log file '{file.filename}' containing {total_events} events with {threat_count} threats.")
         db.session.commit()
         return jsonify({"success": True, "file_id": logfile_record.id})
     except Exception as e:
@@ -762,6 +852,7 @@ def vault_upload():
             password_hash=generate_password_hash(password)
         )
         db.session.add(vault_file)
+        log_audit_entry('Vault File Encryption', f"Successfully encrypted and stored file '{file.filename}' (SHA-256: {original_hash}).")
         db.session.commit()
         flash(f"File '{file.filename}' encrypted and stored successfully in the SecureVault.", "success")
     except Exception as e:
@@ -808,6 +899,7 @@ def vault_decrypt(file_id):
         if decrypted_hash != vault_file.sha256_hash:
             flash("Integrity warning: Decrypted payload checksum mismatch.", "error")
             
+        log_audit_entry('Vault File Decryption', f"Successfully decrypted and downloaded file '{vault_file.filename}'.")
         return send_file(
             io.BytesIO(decrypted_data),
             download_name=vault_file.filename,
@@ -879,6 +971,7 @@ def vault_verify(file_id):
         )
         db.session.add(alert)
         
+    log_audit_entry('Vault Integrity Check', f"Performed integrity verification on file '{vault_file.filename}'. Result: {status}.")
     db.session.commit()
     
     if is_verified:
@@ -969,6 +1062,7 @@ def threat_search():
         
     try:
         result = lookup_threat_intel(query, current_user.id)
+        log_audit_entry('IOC Query', f"Queried threat intelligence for IOC '{query}'. Status: {result['status']}, Risk: {result['risk_level']}.")
         if result['status'] == 'Malicious':
             flash(f"Threat Flagged: IOC '{query}' is classified as Malicious ({result['category']}) with risk level: {result['risk_level']}.", "error")
             # Generate alert
@@ -1074,6 +1168,7 @@ def alert_acknowledge(alert_id):
     if not alert:
         abort(404)
     alert.status = 'Acknowledged'
+    log_audit_entry('Alert Modification', f"Updated alert #{alert.id} status to Acknowledged.")
     db.session.commit()
     flash(f"Alert #{alert.id} acknowledged successfully.", "success")
     return redirect(url_for('main.alerts'))
@@ -1085,6 +1180,7 @@ def alert_close(alert_id):
     if not alert:
         abort(404)
     alert.status = 'Closed'
+    log_audit_entry('Alert Modification', f"Updated alert #{alert.id} status to Closed.")
     db.session.commit()
     flash(f"Alert #{alert.id} closed successfully.", "success")
     return redirect(url_for('main.alerts'))
@@ -1188,6 +1284,7 @@ def incident_create():
                 )
                 db.session.add(note_alert)
                 
+        log_audit_entry('Incident Creation', f"Opened incident case INC-{incident.id}: '{title}' (Priority: {priority}).")
         db.session.commit()
         flash(f"Incident #{incident.id} created successfully.", "success")
     except Exception as e:
@@ -1263,6 +1360,7 @@ def incident_update(incident_id):
                 note=note_content
             )
             db.session.add(note)
+            log_audit_entry('Incident Modification', f"Updated parameters for incident case INC-{incident.id}: " + ", ".join(changes) + ".")
             
         db.session.commit()
         flash(f"Incident #{incident.id} updated successfully.", "success")
@@ -1291,6 +1389,7 @@ def incident_add_note(incident_id):
             note=note_text
         )
         db.session.add(note)
+        log_audit_entry('Incident Investigation Note', f"Appended new investigation note to incident case INC-{incident.id}.")
         db.session.commit()
         flash("Investigation note appended successfully.", "success")
     except Exception as e:
@@ -1335,5 +1434,367 @@ def reports():
         module_name="Reports",
         description="Generate compliance, activity, and executive SOC summary reports in PDF or JSON formats.",
         status="Coming Soon"
+    )
+
+# ==========================================
+# PHASE 9 - NEW MODULES & ENDPOINTS
+# ==========================================
+
+# Helper function to write to AuditLog table
+def log_audit_entry(action, details=None):
+    try:
+        from models.audit import AuditLog
+        log = AuditLog(
+            user_id=current_user.id if current_user.is_authenticated else None,
+            action=action,
+            details=details,
+            ip_address=request.remote_addr
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as e:
+        print(f"[AUDIT LOG SYSTEM ERROR] {str(e)}")
+
+# 1. Settings Module
+@main_bp.route('/settings')
+@login_required
+def settings():
+    return render_template('settings.html')
+
+@main_bp.route('/settings/update', methods=['POST'])
+@login_required
+def settings_update():
+    email = request.form.get('email', '').strip()
+    if not email:
+        flash("Email input cannot be empty.", "error")
+        return redirect(url_for('main.settings'))
+        
+    try:
+        # Check if email is already taken by someone else
+        existing = User.query.filter(User.email == email, User.id != current_user.id).first()
+        if existing:
+            flash("Email address is already in use by another account.", "error")
+            return redirect(url_for('main.settings'))
+            
+        current_user.email = email
+        db.session.commit()
+        
+        log_audit_entry('Profile Modification', f"Analyst updated email profile parameters to: {email}.")
+        flash("Profile settings updated successfully.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Failed to update profile: {str(e)}", "error")
+        
+    return redirect(url_for('main.settings'))
+
+@main_bp.route('/settings/password', methods=['POST'])
+@login_required
+def settings_password():
+    current_password = request.form.get('current_password', '')
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+    
+    if not current_password or not new_password or not confirm_password:
+        flash("Password parameters cannot be empty.", "error")
+        return redirect(url_for('main.settings'))
+        
+    if not current_user.check_password(current_password):
+        flash("Incorrect current password.", "error")
+        return redirect(url_for('main.settings'))
+        
+    if len(new_password) < 8:
+        flash("New password must be at least 8 characters long.", "error")
+        return redirect(url_for('main.settings'))
+        
+    if new_password != confirm_password:
+        flash("Passwords do not match.", "error")
+        return redirect(url_for('main.settings'))
+        
+    try:
+        current_user.set_password(new_password)
+        db.session.commit()
+        
+        log_audit_entry('Password Update', "User successfully updated account password credentials.")
+        flash("Password updated successfully.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Failed to change password: {str(e)}", "error")
+        
+    return redirect(url_for('main.settings'))
+
+@main_bp.route('/settings/preferences', methods=['POST'])
+@login_required
+def settings_preferences():
+    theme_pref = request.form.get('theme_pref', 'default')
+    refresh_interval = request.form.get('refresh_interval', '10')
+    email_alerts = request.form.get('email_alerts', 'off')
+    
+    from flask import session
+    session['theme_pref'] = theme_pref
+    session['refresh_interval'] = refresh_interval
+    session['email_alerts'] = email_alerts
+    
+    log_audit_entry('Preferences Modification', f"User updated application preferences: Theme={theme_pref}, Refresh={refresh_interval}s, Email Alerts={email_alerts}.")
+    flash("Application preferences updated successfully.", "success")
+    return redirect(url_for('main.settings'))
+
+# 2. Admin Panel
+@main_bp.route('/admin')
+@login_required
+def admin_dashboard():
+    total_users = User.query.count()
+    active_users = User.query.filter_by(status='Active').count()
+    disabled_users = User.query.filter_by(status='Disabled').count()
+    total_alerts = Alert.query.count()
+    total_incidents = Incident.query.count()
+    total_logs = AuditLog.query.count()
+    
+    # Role distribution
+    admins = User.query.filter_by(role='Administrator').count()
+    managers = User.query.filter_by(role='SOC Manager').count()
+    engineers = User.query.filter_by(role='Security Engineer').count()
+    analysts = User.query.filter_by(role='SOC Analyst').count()
+    
+    import sys
+    import platform
+    app_health = {
+        "db_status": "Operational",
+        "db_engine": "SQLite",
+        "python_version": sys.version.split()[0],
+        "platform": platform.system(),
+        "uploads_writeable": os.access(current_app.config['UPLOAD_FOLDER'], os.W_OK) if os.path.exists(current_app.config['UPLOAD_FOLDER']) else True,
+        "sniffer_mode": "Simulation" if getattr(sniffer_manager, 'permission_warning', False) else "Operational"
+    }
+    
+    return render_template(
+        'admin/dashboard.html',
+        total_users=total_users,
+        active_users=active_users,
+        disabled_users=disabled_users,
+        total_alerts=total_alerts,
+        total_incidents=total_incidents,
+        total_logs=total_logs,
+        admins=admins,
+        managers=managers,
+        engineers=engineers,
+        analysts=analysts,
+        app_health=app_health
+    )
+
+# 3. User Management
+@main_bp.route('/admin/users')
+@login_required
+def admin_users():
+    users = User.query.order_by(User.id.asc()).all()
+    return render_template('admin/users.html', users=users)
+
+@main_bp.route('/admin/users/add', methods=['POST'])
+@login_required
+def admin_user_add():
+    username = request.form.get('username', '').strip()
+    email = request.form.get('email', '').strip()
+    password = request.form.get('password', '')
+    role = request.form.get('role', 'SOC Analyst').strip()
+    status = request.form.get('status', 'Active').strip()
+    
+    if not username or not email or not password or not role or not status:
+        flash("User creation parameters cannot be empty.", "error")
+        return redirect(url_for('main.admin_users'))
+        
+    if len(username) < 3:
+        flash("Username must be at least 3 characters long.", "error")
+        return redirect(url_for('main.admin_users'))
+        
+    if len(password) < 8:
+        flash("Password must be at least 8 characters long.", "error")
+        return redirect(url_for('main.admin_users'))
+        
+    if User.query.filter_by(username=username).first():
+        flash("Username is already registered.", "error")
+        return redirect(url_for('main.admin_users'))
+        
+    if User.query.filter_by(email=email).first():
+        flash("Email address is already registered.", "error")
+        return redirect(url_for('main.admin_users'))
+        
+    try:
+        new_user = User(username=username, email=email, role=role, status=status)
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+        
+        log_audit_entry('User Account Created', f"Administrator created user account '{username}' with role '{role}' and status '{status}'.")
+        flash(f"User account '{username}' created successfully.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Failed to create user account: {str(e)}", "error")
+        
+    return redirect(url_for('main.admin_users'))
+
+@main_bp.route('/admin/users/edit/<int:user_id>', methods=['POST'])
+@login_required
+def admin_user_edit(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+        
+    email = request.form.get('email', '').strip()
+    role = request.form.get('role', '').strip()
+    status = request.form.get('status', '').strip()
+    password = request.form.get('password', '') # Optional password reset
+    
+    if not email or not role or not status:
+        flash("User edit parameters cannot be empty.", "error")
+        return redirect(url_for('main.admin_users'))
+        
+    # Prevent self lockout/changes
+    if user.id == current_user.id:
+        if role != 'Administrator':
+            flash("Self-protection check: You cannot downgrade your own administrative Administrator role.", "error")
+            return redirect(url_for('main.admin_users'))
+        if status != 'Active':
+            flash("Self-protection check: You cannot disable your own active account.", "error")
+            return redirect(url_for('main.admin_users'))
+            
+    try:
+        # Check email duplicate
+        existing = User.query.filter(User.email == email, User.id != user.id).first()
+        if existing:
+            flash("Email address is already in use by another user account.", "error")
+            return redirect(url_for('main.admin_users'))
+            
+        changes = []
+        if user.email != email:
+            changes.append(f"Email changed to '{email}'")
+        if user.role != role:
+            changes.append(f"Role changed from '{user.role}' to '{role}'")
+        if user.status != status:
+            changes.append(f"Status changed from '{user.status}' to '{status}'")
+            
+        user.email = email
+        user.role = role
+        user.status = status
+        
+        if password:
+            if len(password) < 8:
+                flash("Reset password must be at least 8 characters long.", "error")
+                return redirect(url_for('main.admin_users'))
+            user.set_password(password)
+            changes.append("Password reset by administrator")
+            
+        if changes:
+            log_audit_entry('User Account Modified', f"Administrator modified user '{user.username}': " + ", ".join(changes) + ".")
+            
+        db.session.commit()
+        flash(f"User account '{user.username}' updated successfully.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Failed to update user details: {str(e)}", "error")
+        
+    return redirect(url_for('main.admin_users'))
+
+@main_bp.route('/admin/users/delete/<int:user_id>', methods=['POST'])
+@login_required
+def admin_user_delete(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+        
+    if user.id == current_user.id:
+        flash("Self-protection check: You cannot delete your own administrative account.", "error")
+        return redirect(url_for('main.admin_users'))
+        
+    try:
+        username = user.username
+        db.session.delete(user)
+        db.session.commit()
+        
+        log_audit_entry('User Account Deleted', f"Administrator deleted user account '{username}' from system databases.")
+        flash(f"User account '{username}' deleted successfully.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Failed to delete user account: {str(e)}", "error")
+        
+    return redirect(url_for('main.admin_users'))
+
+@main_bp.route('/admin/users/status/<int:user_id>', methods=['POST'])
+@login_required
+def admin_user_status(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+        
+    if user.id == current_user.id:
+        flash("Self-protection check: You cannot disable your own active account.", "error")
+        return redirect(url_for('main.admin_users'))
+        
+    try:
+        new_status = 'Disabled' if user.status == 'Active' else 'Active'
+        user.status = new_status
+        db.session.commit()
+        
+        log_audit_entry('User Account Status Toggle', f"Administrator toggled status of '{user.username}' to '{new_status}'.")
+        flash(f"User '{user.username}' account status updated to {new_status}.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Failed to toggle user status: {str(e)}", "error")
+        
+    return redirect(url_for('main.admin_users'))
+
+# 4. Audit Logs Module
+@main_bp.route('/admin/audit')
+@login_required
+def admin_audit():
+    q = request.args.get('q', '').strip()
+    action_filter = request.args.get('action_filter', '').strip()
+    
+    query = AuditLog.query
+    
+    if q:
+        query = query.join(AuditLog.user, isouter=True).filter(
+            (AuditLog.action.ilike(f"%{q}%")) |
+            (AuditLog.details.ilike(f"%{q}%")) |
+            (User.username.ilike(f"%{q}%"))
+        )
+    if action_filter:
+        query = query.filter(AuditLog.action == action_filter)
+        
+    logs = query.order_by(AuditLog.timestamp.desc()).limit(200).all()
+    
+    # Retrieve unique actions for filtering dropdown list
+    unique_actions = db.session.query(AuditLog.action).distinct().all()
+    actions_list = [a[0] for a in unique_actions]
+    
+    return render_template(
+        'admin/audit.html',
+        logs=logs,
+        current_search=q,
+        current_action=action_filter,
+        actions_list=actions_list
+    )
+
+@main_bp.route('/admin/audit/export')
+@login_required
+def admin_audit_export():
+    logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).all()
+    
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['Audit ID', 'Timestamp', 'User', 'Action', 'Details', 'IP Address'])
+    for l in logs:
+        cw.writerow([
+            l.id,
+            l.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            l.user.username if l.user else 'System',
+            l.action,
+            l.details,
+            l.ip_address
+        ])
+        
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=audit_logs_history.csv"}
     )
 

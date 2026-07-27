@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Panel - CyberSOC{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 animate-fade-in">
+    <!-- Header -->
+    <div class="mb-4">
+        <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-shield-lock text-primary me-2"></i>Admin Panel</h1>
+        <p class="text-secondary mb-0">SOC Administrator dashboard for user provisioning, permission policies, system health, and audit logs</p>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="row g-4 mb-4">
+        <!-- Total Users -->
+        <div class="col-12 col-sm-6 col-xl-4">
+            <div class="card bg-dark-card p-4 border border-white border-opacity-5 rounded-4 h-100">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Provisioned Users</span>
+                    <i class="bi bi-people-fill text-primary fs-4"></i>
+                </div>
+                <h2 class="h3 fw-bold text-white mb-1">{{ total_users }}</h2>
+                <div class="d-flex align-items-center gap-2 small mt-2">
+                    <span class="text-success"><i class="bi bi-circle-fill small"></i> {{ active_users }} Active</span>
+                    <span class="text-muted">|</span>
+                    <span class="text-danger"><i class="bi bi-circle-fill small"></i> {{ disabled_users }} Disabled</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total System Alerts -->
+        <div class="col-12 col-sm-6 col-xl-4">
+            <div class="card bg-dark-card p-4 border border-white border-opacity-5 rounded-4 h-100">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Total System Alerts</span>
+                    <i class="bi bi-bell-fill text-warning fs-4"></i>
+                </div>
+                <h2 class="h3 fw-bold text-white mb-1">{{ total_alerts }}</h2>
+                <p class="text-muted small mb-0 mt-2">Across all monitor modules</p>
+            </div>
+        </div>
+
+        <!-- Total Incidents -->
+        <div class="col-12 col-sm-6 col-xl-4">
+            <div class="card bg-dark-card p-4 border border-white border-opacity-5 rounded-4 h-100">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Incident Cases</span>
+                    <i class="bi bi-shield-fill-exclamation text-danger fs-4"></i>
+                </div>
+                <h2 class="h3 fw-bold text-white mb-1">{{ total_incidents }}</h2>
+                <p class="text-muted small mb-0 mt-2">Active investigations</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Layout -->
+    <div class="row g-4 mb-4">
+        <!-- Quick Actions & User statistics -->
+        <div class="col-12 col-lg-7">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 mb-4">
+                <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-cpu text-primary me-2"></i>Administration Modules</h3>
+                <div class="row g-3">
+                    <div class="col-12 col-sm-6">
+                        <a href="{{ url_for('main.admin_users') }}" class="btn btn-outline-primary w-100 py-4 text-center rounded-3">
+                            <i class="bi bi-people fs-2 mb-2 d-block"></i>
+                            <span class="fw-bold d-block">User Management</span>
+                            <small class="text-muted">Manage access and roles</small>
+                        </a>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <a href="{{ url_for('main.admin_audit') }}" class="btn btn-outline-success w-100 py-4 text-center rounded-3">
+                            <i class="bi bi-journal-code fs-2 mb-2 d-block"></i>
+                            <span class="fw-bold d-block">System Audit Logs</span>
+                            <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 ms-1">{{ total_logs }} logs</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed breakdown list -->
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+                <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-card-list text-primary me-2"></i>User Directory Summary</h3>
+                <div class="table-responsive">
+                    <table class="table table-dark table-borderless align-middle mb-0 small">
+                        <thead>
+                            <tr class="border-bottom border-white border-opacity-10 text-secondary">
+                                <th>Role</th>
+                                <th class="text-end">Registered Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-bottom border-white border-opacity-5">
+                                <td class="text-light fw-medium">Administrators</td>
+                                <td class="text-end font-monospace fw-bold text-primary">{{ admins }}</td>
+                            </tr>
+                            <tr class="border-bottom border-white border-opacity-5">
+                                <td class="text-light fw-medium">SOC Managers</td>
+                                <td class="text-end font-monospace fw-bold text-warning">{{ managers }}</td>
+                            </tr>
+                            <tr class="border-bottom border-white border-opacity-5">
+                                <td class="text-light fw-medium">Security Engineers</td>
+                                <td class="text-end font-monospace fw-bold text-info">{{ engineers }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-light fw-medium">SOC Analysts</td>
+                                <td class="text-end font-monospace fw-bold text-success">{{ analysts }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Pie Chart -->
+        <div class="col-12 col-lg-5">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100">
+                <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-pie-chart-fill text-primary me-2"></i>Role Distribution</h3>
+                <div class="chart-container d-flex align-items-center justify-content-center" style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="roleDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Health Panel -->
+    <div class="row g-4">
+        <div class="col-12">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+                <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-heart-pulse-fill text-danger me-2"></i>Application Health & System Status</h3>
+                
+                <div class="row g-4">
+                    <div class="col-12 col-sm-6 col-md-4">
+                        <div class="p-3 bg-dark bg-opacity-30 rounded-3 border border-white border-opacity-5">
+                            <span class="text-secondary small fw-medium d-block mb-1">Database Connectivity</span>
+                            <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i> {{ app_health.db_status }}</span>
+                            <span class="text-muted small ms-2 font-monospace">({{ app_health.db_engine }})</span>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-sm-6 col-md-4">
+                        <div class="p-3 bg-dark bg-opacity-30 rounded-3 border border-white border-opacity-5">
+                            <span class="text-secondary small fw-medium d-block mb-1">Python Version</span>
+                            <span class="text-light fw-bold font-monospace">{{ app_health.python_version }}</span>
+                            <span class="text-muted small ms-1 font-monospace">on {{ app_health.platform }}</span>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-sm-6 col-md-4">
+                        <div class="p-3 bg-dark bg-opacity-30 rounded-3 border border-white border-opacity-5">
+                            <span class="text-secondary small fw-medium d-block mb-1">Upload Storage Directory</span>
+                            {% if app_health.uploads_writeable %}
+                            <span class="text-success fw-bold"><i class="bi bi-file-earmark-arrow-up me-1"></i> Writeable / Writable</span>
+                            {% else %}
+                            <span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill me-1"></i> Read-only / Blocked</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-sm-6 col-md-4">
+                        <div class="p-3 bg-dark bg-opacity-30 rounded-3 border border-white border-opacity-5">
+                            <span class="text-secondary small fw-medium d-block mb-1">Pcap Packet Sniffer Driver</span>
+                            {% if app_health.sniffer_mode == 'Operational' %}
+                            <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 px-2 py-1">Operational</span>
+                            {% else %}
+                            <span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-20 px-2 py-1">Simulation Mode</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-sm-6 col-md-4">
+                        <div class="p-3 bg-dark bg-opacity-30 rounded-3 border border-white border-opacity-5">
+                            <span class="text-secondary small fw-medium d-block mb-1">Alert Event Queue Handler</span>
+                            <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-20 px-2 py-1"><i class="bi bi-activity me-1"></i> Listening</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const chartColors = {
+        admin: '#3b82f6',
+        manager: '#f59e0b',
+        engineer: '#06b6d4',
+        analyst: '#10b981',
+        text: '#9ca3af'
+    };
+
+    const roleCtx = document.getElementById('roleDistributionChart');
+    if (roleCtx) {
+        new Chart(roleCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Administrators', 'Managers', 'Engineers', 'Analysts'],
+                datasets: [{
+                    data: [{{ admins }}, {{ managers }}, {{ engineers }}, {{ analysts }}],
+                    backgroundColor: [
+                        chartColors.admin,
+                        chartColors.manager,
+                        chartColors.engineer,
+                        chartColors.analyst
+                    ],
+                    borderColor: '#121826',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: chartColors.text,
+                            font: { family: 'Inter', size: 11 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

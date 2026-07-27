@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}User Settings - CyberSOC{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 animate-fade-in">
+    <!-- Header -->
+    <div class="mb-4">
+        <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-gear-fill text-primary me-2"></i>Account Settings</h1>
+        <p class="text-secondary mb-0">Manage your profile details and application configurations</p>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <!-- 1. Profile details form -->
+        <div class="col-12 col-lg-6">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100">
+                <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-person-fill text-primary me-2"></i>Profile Details</h3>
+                
+                <form action="{{ url_for('main.settings_update') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Username</label>
+                        <input type="text" class="form-control text-muted bg-dark border-white border-opacity-5" value="{{ current_user.username }}" readonly style="background-color: rgba(18, 24, 38, 0.4) !important;">
+                        <small class="text-muted">Username cannot be changed once registered.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">SOC Role</label>
+                        <input type="text" class="form-control text-muted bg-dark border-white border-opacity-5" value="{{ current_user.role }}" readonly style="background-color: rgba(18, 24, 38, 0.4) !important;">
+                        <small class="text-muted">Role permissions are managed by Administrators.</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label text-secondary small fw-medium">Email Address</label>
+                        <input type="email" class="form-control text-light bg-dark border-white border-opacity-10" name="email" value="{{ current_user.email }}" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-3 fw-bold mt-auto">
+                        <i class="bi bi-check-lg me-2"></i> Update Profile Details
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 2. Security / Change Password form -->
+        <div class="col-12 col-lg-6">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100">
+                <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-shield-lock-fill text-primary me-2"></i>Change Credentials</h3>
+                
+                <form action="{{ url_for('main.settings_password') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Current Password</label>
+                        <input type="password" class="form-control text-light bg-dark border-white border-opacity-10" name="current_password" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">New Password</label>
+                        <input type="password" class="form-control text-light bg-dark border-white border-opacity-10" name="new_password" required>
+                        <small class="text-muted">Password must be at least 8 characters long.</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label text-secondary small fw-medium">Confirm New Password</label>
+                        <input type="password" class="form-control text-light bg-dark border-white border-opacity-10" name="confirm_password" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-3 fw-bold">
+                        <i class="bi bi-key-fill me-2"></i> Change Password
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Application Preferences Section -->
+    <div class="row g-4">
+        <div class="col-12">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+                <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-sliders text-primary me-2"></i>Application Preferences</h3>
+                
+                <form action="{{ url_for('main.settings_preferences') }}" method="POST">
+                    <div class="row g-4 mb-4">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label text-secondary small fw-medium">Visual Console Theme</label>
+                            <select name="theme_pref" class="form-select text-light bg-dark border-white border-opacity-10">
+                                <option value="default" {% if session.get('theme_pref') == 'default' or not session.get('theme_pref') %}selected{% endif %}>Deep Space (Default)</option>
+                                <option value="cyberpunk" {% if session.get('theme_pref') == 'cyberpunk' %}selected{% endif %}>Neon Cyberpunk</option>
+                                <option value="matrix" {% if session.get('theme_pref') == 'matrix' %}selected{% endif %}>High Contrast Matrix</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label class="form-label text-secondary small fw-medium">Auto-Refresh Interval</label>
+                            <select name="refresh_interval" class="form-select text-light bg-dark border-white border-opacity-10">
+                                <option value="5" {% if session.get('refresh_interval') == '5' %}selected{% endif %}>5 Seconds</option>
+                                <option value="10" {% if session.get('refresh_interval') == '10' or not session.get('refresh_interval') %}selected{% endif %}>10 Seconds</option>
+                                <option value="30" {% if session.get('refresh_interval') == '30' %}selected{% endif %}>30 Seconds</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label class="form-label text-secondary small fw-medium">Real-Time Alerts Notifications</label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" name="email_alerts" role="switch" id="emailAlertsSwitch" {% if session.get('email_alerts') == 'on' %}checked{% endif %}>
+                                <label class="form-check-label text-secondary small" for="emailAlertsSwitch">Enable toast popups on threats ingestion</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary px-5 py-3 fw-bold">
+                        <i class="bi bi-save2-fill me-2"></i> Save Application Preferences
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
