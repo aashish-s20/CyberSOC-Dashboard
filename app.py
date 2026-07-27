@@ -7,6 +7,8 @@ from models.user import User
 from models.scan import NetworkScan, PortResult, DNSResult
 from models.monitor import MonitoringSession, CapturedPacket
 from models.analyzer import LogFile, LogEvent
+from models.vault import VaultFile, IntegrityCheck
+from models.threat import ThreatIndicator, ThreatIntelHistory
 from routes.auth import auth_bp
 from routes.main import main_bp
 from routes.errors import errors_bp
@@ -42,6 +44,7 @@ def create_app(config_class=Config):
     with app.app_context():
         db.create_all()
         seed_default_user()
+        seed_threat_indicators()
         
     return app
 
@@ -59,6 +62,61 @@ def seed_default_user():
         db.session.add(manager)
         db.session.commit()
         print("[DATABASE] Default SOC Manager account successfully seeded.")
+
+def seed_threat_indicators():
+    default_indicator = ThreatIndicator.query.first()
+    if not default_indicator:
+        indicators = [
+            ThreatIndicator(
+                ioc='198.51.100.45',
+                ioc_type='IPv4 Address',
+                reputation_score=15,
+                risk_level='High',
+                status='Malicious',
+                category='Botnet',
+                description='Active botnet node participating in distributed denial of service campaigns.'
+            ),
+            ThreatIndicator(
+                ioc='malware-dropzone.net',
+                ioc_type='Domain Name',
+                reputation_score=8,
+                risk_level='Critical',
+                status='Malicious',
+                category='Command & Control',
+                description='Active command & control server hosting payloads for ransomware distribution.'
+            ),
+            ThreatIndicator(
+                ioc='https://phishing-update.login-security.com/signin',
+                ioc_type='URL',
+                reputation_score=32,
+                risk_level='Medium',
+                status='Suspicious',
+                category='Phishing',
+                description='Credential harvesting landing page mimicking online financial portals.'
+            ),
+            ThreatIndicator(
+                ioc='85155c4d62bb4be8d18471c261e4e4649a888c3a9d5d5a7d4a460bfae41f7142',
+                ioc_type='SHA-256 Hash',
+                reputation_score=0,
+                risk_level='Critical',
+                status='Malicious',
+                category='Ransomware',
+                description='SHA-256 signature associated with LockBit ransomware variant binary.'
+            ),
+            ThreatIndicator(
+                ioc='8.8.8.8',
+                ioc_type='IPv4 Address',
+                reputation_score=100,
+                risk_level='Low',
+                status='Safe',
+                category='Unknown',
+                description='Google Public DNS server. Known benign resource.'
+            )
+        ]
+        for ind in indicators:
+            db.session.add(ind)
+        db.session.commit()
+        print("[DATABASE] Default Threat Indicators successfully seeded.")
 
 app = create_app()
 

@@ -16,7 +16,6 @@
         </div>
     </div>
 
-    <!-- 8 Metric Cards Grid -->
     <div class="row g-4 mb-4">
         <!-- 1. Application Status -->
         <div class="col-12 col-md-6 col-xl-3">
@@ -42,7 +41,31 @@
             </div>
         </div>
 
-        <!-- 3. Total Logs Analysed -->
+        <!-- 3. Files Protected -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Files Protected</span>
+                    <i class="bi bi-lock-fill text-success fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2">{{ files_protected }}</h3>
+                <p class="text-muted small mb-0">Encrypted vault files</p>
+            </div>
+        </div>
+
+        <!-- 4. Integrity Checks -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Integrity Checks</span>
+                    <i class="bi bi-patch-check-fill text-info fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2">{{ integrity_checks_count }}</h3>
+                <p class="text-muted small mb-0">Hash validations executed</p>
+            </div>
+        </div>
+
+        <!-- 5. Total Logs Analysed -->
         <div class="col-12 col-md-6 col-xl-3">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
@@ -54,7 +77,7 @@
             </div>
         </div>
 
-        <!-- 4. Critical Events -->
+        <!-- 6. Critical Events -->
         <div class="col-12 col-md-6 col-xl-3">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
@@ -66,7 +89,7 @@
             </div>
         </div>
 
-        <!-- 5. Packets Captured -->
+        <!-- 7. Packets Captured -->
         <div class="col-12 col-md-6 col-xl-3">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
@@ -78,14 +101,14 @@
             </div>
         </div>
 
-        <!-- 6. Last Monitor Session -->
+        <!-- 8. Last Monitor Session -->
         <div class="col-12 col-md-6 col-xl-3">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <span class="text-secondary small fw-semibold">Last Monitor Session</span>
                     <i class="bi bi-broadcast text-success fs-5"></i>
                 </div>
-                <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.15rem;">
+                <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.15rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
                     {{ last_session.interface if last_session else 'No sessions' }}
                 </h3>
                 <p class="text-muted small mb-0">
@@ -98,7 +121,7 @@
             </div>
         </div>
 
-        <!-- 7. Total Scans -->
+        <!-- 9. Total Scans -->
         <div class="col-12 col-md-6 col-xl-3">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
@@ -110,7 +133,7 @@
             </div>
         </div>
 
-        <!-- 8. Last Scan Target -->
+        <!-- 10. Last Scan Target -->
         <div class="col-12 col-md-6 col-xl-3">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
@@ -127,6 +150,102 @@
                         No audits completed yet
                     {% endif %}
                 </p>
+            </div>
+        </div>
+
+        <!-- 11. Recent Log Upload -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Recent Log Upload</span>
+                    <i class="bi bi-file-earmark-bar-graph text-secondary fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.1rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="{{ recent_log_upload.filename if recent_log_upload else 'N/A' }}">
+                    {{ recent_log_upload.filename if recent_log_upload else 'N/A' }}
+                </h3>
+                <p class="text-muted small mb-0">
+                    {% if recent_log_upload %}
+                        Ingested {{ recent_log_upload.total_events }} lines
+                    {% else %}
+                        No logs analyzed yet
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- 12. Recent Vault Upload -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Recent Vault Ingestion</span>
+                    <i class="bi bi-file-earmark-lock text-secondary fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.1rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="{{ recent_vault_upload.filename if recent_vault_upload else 'N/A' }}">
+                    {{ recent_vault_upload.filename if recent_vault_upload else 'N/A' }}
+                </h3>
+                <p class="text-muted small mb-0">
+                    {% if recent_vault_upload %}
+                        Owner: {{ recent_vault_upload.user.username }}
+                    {% else %}
+                        No secure files stored yet
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- 13. Total IOC Searches -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Total IOC Searches</span>
+                    <i class="bi bi-globe-americas text-primary fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2">{{ total_ioc_searches }}</h3>
+                <p class="text-muted small mb-0">Threat intelligence queries</p>
+            </div>
+        </div>
+
+        <!-- 14. High Risk Findings -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">High Risk Threats</span>
+                    <i class="bi bi-bug-fill text-danger fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-danger mb-2">{{ high_risk_findings }}</h3>
+                <p class="text-muted small mb-0">High/Critical risk signatures</p>
+            </div>
+        </div>
+
+        <!-- 15. Recent IOC Lookup -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Recent IOC Lookup</span>
+                    <i class="bi bi-search text-info fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.15rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="{{ recent_ioc_lookup.ioc if recent_ioc_lookup else 'N/A' }}">
+                    {{ recent_ioc_lookup.ioc if recent_ioc_lookup else 'None' }}
+                </h3>
+                <p class="text-muted small mb-0">
+                    {% if recent_ioc_lookup %}
+                        Risk: {{ recent_ioc_lookup.risk_level }} ({{ recent_ioc_lookup.status }})
+                    {% else %}
+                        No lookups completed yet
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- 16. Threat Feed Status -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Threat Intel Status</span>
+                    <i class="bi bi-shield-fill-check text-success fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2">Online</h3>
+                <p class="text-muted small mb-0">Feeds synchronized</p>
             </div>
         </div>
     </div>

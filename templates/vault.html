@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+
+{% block title %}SecureVault Container - CyberSOC{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 animate-fade-in">
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-lock-fill text-primary me-2"></i>SecureVault Container</h1>
+            <p class="text-secondary mb-0">Enterprise file encryption, cryptographic hash generation, and integrity verification</p>
+        </div>
+        <div>
+            <a href="{{ url_for('main.vault_export_history') }}" class="btn btn-outline-success px-4 py-2">
+                <i class="bi bi-download me-2"></i> Export Vault CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Upload Panel & Search Panel Row -->
+    <div class="row g-4 mb-4">
+        <!-- 1. Encrypted File Ingestion Card -->
+        <div class="col-12 col-lg-6">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100">
+                <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-shield-lock-fill text-primary me-2"></i>Secure Ingestion</h3>
+                <form action="{{ url_for('main.vault_upload') }}" method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Upload File</label>
+                        <input type="file" class="form-control" name="vault_file" required>
+                        <small class="text-muted d-block mt-1">Allowed formats: PDF, DOCX, TXT, CSV, PNG, JPG (Max 5MB)</small>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label text-secondary small fw-medium">Encryption Passphrase</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-secondary bg-opacity-10 border-white border-opacity-10"><i class="bi bi-key-fill text-secondary"></i></span>
+                            <input type="password" class="form-control border-start-0" name="password" placeholder="Specify strong encryption key" required>
+                        </div>
+                        <small class="text-muted d-block mt-1">Never store passwords in plaintext. Keep this key safe to decrypt files later.</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 py-3 fw-bold">
+                        <i class="bi bi-lock me-2"></i> Encrypt & Upload File
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- 2. Search & Filters Card -->
+        <div class="col-12 col-lg-6">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100">
+                <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-funnel-fill text-primary me-2"></i>Search Container Files</h3>
+                <form method="GET" action="{{ url_for('main.vault') }}">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Filename Containing</label>
+                        <input type="text" class="form-control" name="keyword" placeholder="e.g. audit_report..." value="{{ filters.keyword }}">
+                    </div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label text-secondary small fw-medium">Ingestion Date</label>
+                            <input type="date" class="form-control" name="date" value="{{ filters.date }}">
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label text-secondary small fw-medium">File Owner</label>
+                            <input type="text" class="form-control" name="owner" placeholder="Username" value="{{ filters.owner }}">
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-grow-1 py-3 fw-semibold">
+                            <i class="bi bi-search me-2"></i> Query Vault
+                        </button>
+                        <a href="{{ url_for('main.vault') }}" class="btn btn-outline-secondary px-3 py-3">
+                            Clear
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vault Files Table Card -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 mb-4">
+        <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-lock text-primary me-2"></i>Encrypted Vault Registries</h3>
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="border-bottom border-white border-opacity-10 text-muted">
+                        <th>Filename</th>
+                        <th>Upload Timestamp (UTC)</th>
+                        <th>Owner</th>
+                        <th>Status</th>
+                        <th>SHA-256 Hash</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in files %}
+                    <tr class="border-bottom border-white border-opacity-5">
+                        <td class="text-light fw-medium">{{ f.filename }}</td>
+                        <td class="text-secondary">{{ f.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td><span class="text-secondary fw-semibold">{{ f.user.username }}</span></td>
+                        <td>
+                            <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 px-2 py-1">
+                                <i class="bi bi-shield-fill-check me-1"></i> {{ f.encryption_status }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <code class="text-secondary" title="{{ f.sha256_hash }}">{{ f.sha256_hash[:12] }}...</code>
+                                <button type="button" class="btn btn-outline-secondary btn-sm p-1 px-2 border-opacity-50" onclick="copyTextToClipboard('{{ f.sha256_hash }}')">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm px-3" data-bs-toggle="modal" data-bs-target="#decryptModal-{{ f.id }}">
+                                    <i class="bi bi-unlock-fill"></i> Decrypt
+                                </button>
+                                <a href="{{ url_for('main.vault_download_raw', file_id=f.id) }}" class="btn btn-outline-warning btn-sm px-2" title="Download Raw Encrypted Payload">
+                                    <i class="bi bi-download"></i> Raw
+                                </a>
+                                <button type="button" class="btn btn-outline-info btn-sm px-2" data-bs-toggle="modal" data-bs-target="#verifyModal-{{ f.id }}" title="Verify File Integrity">
+                                    <i class="bi bi-patch-check"></i> Verify
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-secondary">No files registered in the SecureVault database container. Upload one above to begin.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Decrypt & Verify Modals Container -->
+    {% for f in files %}
+    <!-- Decrypt Modal -->
+    <div class="modal fade" id="decryptModal-{{ f.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4">
+                <div class="modal-header border-bottom border-white border-opacity-5">
+                    <h5 class="modal-title fw-bold text-white"><i class="bi bi-unlock-fill text-primary me-2"></i>Decrypt Original File</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('main.vault_decrypt', file_id=f.id) }}" method="POST">
+                    <div class="modal-body">
+                        <p class="text-secondary small">Enter the encryption passphrase key defined during ingestion for file: <strong>{{ f.filename }}</strong></p>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-medium">Vault Passphrase</label>
+                            <input type="password" class="form-control" name="password" placeholder="Passphrase" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top border-white border-opacity-5">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Decrypt & Download</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verify Integrity Modal -->
+    <div class="modal fade" id="verifyModal-{{ f.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4">
+                <div class="modal-header border-bottom border-white border-opacity-5">
+                    <h5 class="modal-title fw-bold text-white"><i class="bi bi-patch-check text-primary me-2"></i>Verify File Integrity</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('main.vault_verify', file_id=f.id) }}" method="POST" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <p class="text-secondary small">Upload a file from your local machine to check its signature hash against the original secure vault copy of <strong>{{ f.filename }}</strong>.</p>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-medium">Upload File to Verify</label>
+                            <input type="file" class="form-control" name="check_file" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top border-white border-opacity-5">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-info">Verify Integrity</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Integrity Audits Logs Card -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+        <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-clock-history text-primary me-2"></i>Integrity Auditing Trail</h3>
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="border-bottom border-white border-opacity-10 text-muted">
+                        <th>Audit Timestamp (UTC)</th>
+                        <th>Checked By</th>
+                        <th>Target File</th>
+                        <th>Compared File</th>
+                        <th>Computed Verification Hash</th>
+                        <th>Integrity Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in checks %}
+                    <tr class="border-bottom border-white border-opacity-5">
+                        <td class="text-secondary font-monospace">{{ c.check_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td><span class="text-secondary fw-semibold">{{ c.checked_by.username }}</span></td>
+                        <td class="text-light">{{ c.vault_file.filename }}</td>
+                        <td class="text-secondary text-truncate" style="max-width: 150px;">{{ c.uploaded_filename }}</td>
+                        <td><code class="text-secondary">{{ c.computed_hash[:12] }}...</code></td>
+                        <td>
+                            {% if c.status == 'Integrity Verified' %}
+                            <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 px-2 py-1">
+                                <i class="bi bi-check-circle-fill me-1"></i> Integrity Verified
+                            </span>
+                            {% else %}
+                            <span class="badge bg-danger bg-opacity-15 text-danger border border-danger border-opacity-25 px-2 py-1">
+                                <i class="bi bi-x-circle-fill me-1"></i> Integrity Failed
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-secondary">No integrity auditing trials logged yet. Perform verification from the table above.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyTextToClipboard(text) {
+    if (!navigator.clipboard) {
+        // Fallback
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            alert('Hash copied to clipboard!');
+        } catch (err) {
+            console.error('Fallback copy failed', err);
+        }
+        document.body.removeChild(textArea);
+        return;
+    }
+    navigator.clipboard.writeText(text).then(function() {
+        alert('Hash copied to clipboard!');
+    }, function(err) {
+        console.error('Async clipboard copy failed', err);
+    });
+}
+</script>
+{% endblock %}

@@ -4,3 +4,4 @@ Flask-Login==0.6.3
 dnspython==2.6.1
 python-whois==0.8.0
 scapy==2.5.0
+cryptography==42.0.5

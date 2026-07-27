@@ -1,14 +1,19 @@
 import csv
 import json
+import os
 from io import StringIO
-from flask import Blueprint, render_template, redirect, url_for, request, jsonify, Response, abort
+from flask import Blueprint, render_template, redirect, url_for, request, jsonify, Response, abort, flash
 from flask_login import login_required, current_user
 from models.db import db
 from models.scan import NetworkScan, PortResult, DNSResult
 from models.monitor import MonitoringSession, CapturedPacket
 from models.analyzer import LogFile, LogEvent
+from models.vault import VaultFile, IntegrityCheck
+from models.threat import ThreatIndicator, ThreatIntelHistory
+from services.threat_service import lookup_threat_intel
 from services.monitor_service import sniffer_manager
 from services.log_parser import parse_log_content
+from services.vault_service import encrypt_file_data, decrypt_file_data, calculate_sha256
 from services.scanner_utils import (
     is_valid_ipv4,
     is_valid_domain,
@@ -52,6 +57,17 @@ def dashboard():
     recent_log_upload = LogFile.query.order_by(LogFile.upload_time.desc()).first()
     recent_logs = LogFile.query.order_by(LogFile.upload_time.desc()).limit(5).all()
 
+    # Phase 6 SecureVault Metrics
+    files_protected = VaultFile.query.count()
+    recent_vault_upload = VaultFile.query.order_by(VaultFile.upload_time.desc()).first()
+    integrity_checks_count = IntegrityCheck.query.count()
+    recent_vault_files = VaultFile.query.order_by(VaultFile.upload_time.desc()).limit(5).all()
+
+    # Phase 7 Threat Intelligence Metrics
+    total_ioc_searches = ThreatIntelHistory.query.count()
+    high_risk_findings = ThreatIntelHistory.query.filter(ThreatIntelHistory.risk_level.in_(['High', 'Critical'])).count()
+    recent_ioc_lookup = ThreatIntelHistory.query.order_by(ThreatIntelHistory.search_time.desc()).first()
+
     return render_template(
         'dashboard.html',
         user=current_user,
@@ -64,7 +80,14 @@ def dashboard():
         total_logs_analysed=total_logs_analysed,
         critical_events_count=critical_events_count,
         recent_log_upload=recent_log_upload,
-        recent_logs=recent_logs
+        recent_logs=recent_logs,
+        files_protected=files_protected,
+        recent_vault_upload=recent_vault_upload,
+        integrity_checks_count=integrity_checks_count,
+        recent_vault_files=recent_vault_files,
+        total_ioc_searches=total_ioc_searches,
+        high_risk_findings=high_risk_findings,
+        recent_ioc_lookup=recent_ioc_lookup
     )
 
 @main_bp.route('/scanner')
@@ -578,24 +601,329 @@ def export_analyzer_session(file_id):
         headers={"Content-disposition": f"attachment; filename=parsed_events_{file_id}.csv"}
     )
 
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask import send_file, current_app
+import io
+
 @main_bp.route('/vault')
 @login_required
 def vault():
+    keyword = request.args.get('keyword', '').strip()
+    date_str = request.args.get('date', '').strip()
+    owner_str = request.args.get('owner', '').strip()
+    
+    query = VaultFile.query
+    
+    if keyword:
+        query = query.filter(VaultFile.filename.ilike(f"%{keyword}%"))
+    if date_str:
+        query = query.filter(db.func.strftime('%Y-%m-%d', VaultFile.upload_time) == date_str)
+    if owner_str:
+        query = query.join(VaultFile.user).filter(User.username.ilike(f"%{owner_str}%"))
+        
+    files = query.order_by(VaultFile.upload_time.desc()).all()
+    checks = IntegrityCheck.query.order_by(IntegrityCheck.check_time.desc()).limit(20).all()
+    
     return render_template(
-        'coming_soon.html',
-        module_name="SecureVault",
-        description="Manage security credentials, API keys, certificates, and sensitive environment configs inside a secure key vault container.",
-        status="Coming Soon"
+        'vault.html',
+        files=files,
+        checks=checks,
+        filters={'keyword': keyword, 'date': date_str, 'owner': owner_str}
+    )
+
+@main_bp.route('/vault/upload', methods=['POST'])
+@login_required
+def vault_upload():
+    if 'vault_file' not in request.files or 'password' not in request.form:
+        flash("Upload error: File and encryption password are required.", "error")
+        return redirect(url_for('main.vault'))
+        
+    file = request.files['vault_file']
+    password = request.form['password']
+    
+    if file.filename == '' or not password:
+        flash("Upload error: File name and password cannot be empty.", "error")
+        return redirect(url_for('main.vault'))
+        
+    # Validate extension
+    allowed_exts = {'pdf', 'docx', 'txt', 'csv', 'png', 'jpg'}
+    ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+    if ext not in allowed_exts:
+        flash("Upload error: Unsupported file type. Only PDF, DOCX, TXT, CSV, PNG, JPG allowed.", "error")
+        return redirect(url_for('main.vault'))
+        
+    # Prevent duplicate filenames globally
+    existing = VaultFile.query.filter_by(filename=file.filename).first()
+    if existing:
+        flash(f"Upload error: A file with name '{file.filename}' already exists in the SecureVault.", "error")
+        return redirect(url_for('main.vault'))
+        
+    # Read data
+    file_bytes = file.read()
+    
+    # Validate size (Max 5MB)
+    if len(file_bytes) > 5 * 1024 * 1024:
+        flash("Upload error: File size exceeds the maximum limit of 5MB.", "error")
+        return redirect(url_for('main.vault'))
+        
+    try:
+        encrypted_data, salt, iv = encrypt_file_data(file_bytes, password)
+        original_hash = calculate_sha256(file_bytes)
+        
+        # Save file to disk
+        vault_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'vault')
+        os.makedirs(vault_dir, exist_ok=True)
+        
+        secure_uuid_name = os.urandom(16).hex() + ".enc"
+        encrypted_path = os.path.join(vault_dir, secure_uuid_name)
+        with open(encrypted_path, 'wb') as f:
+            f.write(encrypted_data)
+            
+        # Save to DB
+        vault_file = VaultFile(
+            filename=file.filename,
+            encrypted_filename=secure_uuid_name,
+            user_id=current_user.id,
+            sha256_hash=original_hash,
+            salt=salt.hex(),
+            iv=iv.hex(),
+            password_hash=generate_password_hash(password)
+        )
+        db.session.add(vault_file)
+        db.session.commit()
+        flash(f"File '{file.filename}' encrypted and stored successfully in the SecureVault.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Cryptography failed: {str(e)}", "error")
+        
+    return redirect(url_for('main.vault'))
+
+@main_bp.route('/vault/decrypt/<int:file_id>', methods=['POST'])
+@login_required
+def vault_decrypt(file_id):
+    vault_file = db.session.get(VaultFile, file_id)
+    if not vault_file:
+        abort(404)
+        
+    password = request.form.get('password', '')
+    if not password:
+        flash("Decryption error: Password is required.", "error")
+        return redirect(url_for('main.vault'))
+        
+    # Verify password hash
+    if not check_password_hash(vault_file.password_hash, password):
+        flash("Decryption error: Incorrect encryption key password.", "error")
+        return redirect(url_for('main.vault'))
+        
+    # Read encrypted file
+    vault_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'vault')
+    encrypted_path = os.path.join(vault_dir, vault_file.encrypted_filename)
+    
+    if not os.path.exists(encrypted_path):
+        flash("File error: Encrypted payload file missing from storage.", "error")
+        return redirect(url_for('main.vault'))
+        
+    with open(encrypted_path, 'rb') as f:
+        encrypted_data = f.read()
+        
+    try:
+        salt = bytes.fromhex(vault_file.salt)
+        iv = bytes.fromhex(vault_file.iv)
+        decrypted_data = decrypt_file_data(encrypted_data, password, salt, iv)
+        
+        # Verify decrypted data hash matches original stored hash
+        decrypted_hash = calculate_sha256(decrypted_data)
+        if decrypted_hash != vault_file.sha256_hash:
+            flash("Integrity warning: Decrypted payload checksum mismatch.", "error")
+            
+        return send_file(
+            io.BytesIO(decrypted_data),
+            download_name=vault_file.filename,
+            as_attachment=True
+        )
+    except Exception as e:
+        flash(f"Decryption failed: {str(e)}", "error")
+        return redirect(url_for('main.vault'))
+
+@main_bp.route('/vault/download/<int:file_id>')
+@login_required
+def vault_download_raw(file_id):
+    vault_file = db.session.get(VaultFile, file_id)
+    if not vault_file:
+        abort(404)
+        
+    vault_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'vault')
+    encrypted_path = os.path.join(vault_dir, vault_file.encrypted_filename)
+    
+    if not os.path.exists(encrypted_path):
+        flash("File error: Encrypted payload file missing from storage.", "error")
+        return redirect(url_for('main.vault'))
+        
+    return send_file(
+        encrypted_path,
+        download_name=vault_file.filename + ".enc",
+        as_attachment=True
+    )
+
+@main_bp.route('/vault/verify/<int:file_id>', methods=['POST'])
+@login_required
+def vault_verify(file_id):
+    vault_file = db.session.get(VaultFile, file_id)
+    if not vault_file:
+        abort(404)
+        
+    if 'check_file' not in request.files:
+        flash("Verification error: No file uploaded to compare.", "error")
+        return redirect(url_for('main.vault'))
+        
+    file = request.files['check_file']
+    if file.filename == '':
+        flash("Verification error: No file selected.", "error")
+        return redirect(url_for('main.vault'))
+        
+    file_bytes = file.read()
+    computed_hash = calculate_sha256(file_bytes)
+    
+    is_verified = (computed_hash == vault_file.sha256_hash)
+    status = "Integrity Verified" if is_verified else "Integrity Failed"
+    
+    check = IntegrityCheck(
+        vault_file_id=vault_file.id,
+        checked_by_id=current_user.id,
+        uploaded_filename=file.filename,
+        computed_hash=computed_hash,
+        status=status
+    )
+    db.session.add(check)
+    db.session.commit()
+    
+    if is_verified:
+        flash(f"Integrity Check: Verified! File '{file.filename}' matches the secure original '{vault_file.filename}'.", "success")
+    else:
+        flash(f"Integrity Check: FAILED! File '{file.filename}' does NOT match the secure original '{vault_file.filename}'.", "error")
+        
+    return redirect(url_for('main.vault'))
+
+@main_bp.route('/vault/export')
+@login_required
+def vault_export_history():
+    files = VaultFile.query.order_by(VaultFile.upload_time.asc()).all()
+    
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['File ID', 'Filename', 'Upload Time', 'Owner', 'Encryption Status', 'SHA-256 Hash'])
+    for f in files:
+        cw.writerow([f.id, f.filename, f.upload_time.strftime('%Y-%m-%d %H:%M:%S'), f.user.username, f.encryption_status, f.sha256_hash])
+        
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=secure_vault_history.csv"}
     )
 
 @main_bp.route('/threats')
 @login_required
 def threats():
+    # 1. Fetch search history
+    history = ThreatIntelHistory.query.order_by(ThreatIntelHistory.search_time.desc()).all()
+    
+    # 2. Get last search result context to show in the UI console
+    last_search = ThreatIntelHistory.query.filter_by(user_id=current_user.id).order_by(ThreatIntelHistory.search_time.desc()).first()
+    last_result = None
+    if last_search:
+        indicator = ThreatIndicator.query.filter(ThreatIndicator.ioc.ilike(last_search.ioc)).first()
+        desc = indicator.description if indicator else "No threat signatures found in threat intelligence feeds. The IOC appears to be safe."
+        last_result = {
+            'ioc': last_search.ioc,
+            'ioc_type': last_search.ioc_type,
+            'reputation_score': last_search.reputation_score,
+            'risk_level': last_search.risk_level,
+            'status': last_search.status,
+            'category': last_search.category,
+            'description': desc,
+            'timestamp': last_search.search_time
+        }
+        
+    # 3. Chart Metrics: Risk Level Distribution
+    risk_levels = ['Low', 'Medium', 'High', 'Critical']
+    risk_data = [ThreatIntelHistory.query.filter_by(risk_level=r).count() for r in risk_levels]
+    
+    # 4. Chart Metrics: IOC Type Distribution
+    ioc_types = ['IPv4 Address', 'Domain Name', 'URL', 'SHA-256 Hash']
+    type_data = [ThreatIntelHistory.query.filter_by(ioc_type=t).count() for t in ioc_types]
+    
+    # 5. Chart Metrics: Daily Searches (Last 7 Days)
+    from datetime import date, timedelta
+    today = date.today()
+    daily_labels = []
+    daily_counts = []
+    for i in range(6, -1, -1):
+        day = today - timedelta(days=i)
+        day_str = day.strftime('%Y-%m-%d')
+        count = ThreatIntelHistory.query.filter(db.func.strftime('%Y-%m-%d', ThreatIntelHistory.search_time) == day_str).count()
+        daily_labels.append(day.strftime('%b %d'))
+        daily_counts.append(count)
+        
     return render_template(
-        'coming_soon.html',
-        module_name="Threat Intelligence",
-        description="Cross-reference IP reputation, DNS blacklist indexes, and local threat feeds against global open intelligence APIs.",
-        status="Coming Soon"
+        'threats.html',
+        history=history,
+        last_result=last_result,
+        risk_data=risk_data,
+        type_data=type_data,
+        daily_labels=daily_labels,
+        daily_counts=daily_counts
+    )
+
+@main_bp.route('/threats/search', methods=['POST'])
+@login_required
+def threat_search():
+    query = request.form.get('ioc', '').strip()
+    if not query:
+        flash("Search error: Threat query cannot be empty.", "error")
+        return redirect(url_for('main.threats'))
+        
+    try:
+        result = lookup_threat_intel(query, current_user.id)
+        if result['status'] == 'Malicious':
+            flash(f"Threat Flagged: IOC '{query}' is classified as Malicious ({result['category']}) with risk level: {result['risk_level']}.", "error")
+        elif result['status'] == 'Suspicious':
+            flash(f"Warning: IOC '{query}' is classified as Suspicious ({result['category']}) with risk level: {result['risk_level']}.", "warning")
+        else:
+            flash(f"IOC Analysis Completed: '{query}' is classified as Safe.", "success")
+    except ValueError as e:
+        flash(f"Validation failed: {str(e)}", "error")
+    except Exception as e:
+        flash(f"Search lookup failed: {str(e)}", "error")
+        
+    return redirect(url_for('main.threats'))
+
+@main_bp.route('/threats/export')
+@login_required
+def threat_export_history():
+    history = ThreatIntelHistory.query.order_by(ThreatIntelHistory.search_time.asc()).all()
+    
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['History ID', 'User', 'IOC', 'IOC Type', 'Reputation Score', 'Risk Level', 'Status', 'Category', 'Search Time'])
+    for h in history:
+        cw.writerow([
+            h.id,
+            h.user.username,
+            h.ioc,
+            h.ioc_type,
+            h.reputation_score,
+            h.risk_level,
+            h.status,
+            h.category,
+            h.search_time.strftime('%Y-%m-%d %H:%M:%S')
+        ])
+        
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": "attachment; filename=threat_intelligence_history.csv"}
     )
 
 @main_bp.route('/alerts')
