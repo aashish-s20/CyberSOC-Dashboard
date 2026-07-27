@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CyberSOC Dashboard is an educational cybersecurity and networking platform that combines multiple security tools into one unified dashboard.">
+    <title>{% block title %}CyberSOC Dashboard{% endblock %}</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom Style CSS -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <!-- Alert Toast Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="alert-container">
+                {% for category, message in messages %}
+                    <div class="alert alert-custom alert-dismissible fade show border-opacity-50 {% if category == 'error' %}border-danger text-danger{% else %}border-primary text-primary{% endif %}" role="alert">
+                        <div class="d-flex align-items-center">
+                            {% if category == 'error' %}
+                                <i class="bi bi-exclamation-octagon-fill me-2 fs-5"></i>
+                            {% else %}
+                                <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+                            {% endif %}
+                            <div>{{ message }}</div>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div id="wrapper">
+        {% if current_user.is_authenticated %}
+        <!-- Sidebar -->
+        <nav id="sidebar" class="animate-fade-in">
+            <div class="sidebar-header">
+                <a href="{{ url_for('main.dashboard') }}" class="text-decoration-none d-flex align-items-center">
+                    <i class="bi bi-shield-lock-fill text-primary fs-3 me-2"></i>
+                    <span class="fs-5 fw-bold text-light brand-font">CyberSOC</span>
+                </a>
+            </div>
+
+            <ul class="list-unstyled components">
+                <li class="{% if request.endpoint == 'main.dashboard' %}active{% endif %}">
+                    <a href="{{ url_for('main.dashboard') }}">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                </li>
+                
+                <!-- FUTURE_MODULES_SIDEBAR_HOOK: Hook for future security modules (e.g. scanner, logs, analysis) -->
+                
+                <li>
+                    <a href="{{ url_for('auth.logout') }}">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
+        <!-- Page Content -->
+        <div id="content" class="d-flex flex-column">
+            {% if current_user.is_authenticated %}
+            <!-- Navbar -->
+            <nav class="navbar navbar-expand-lg soc-navbar navbar-dark">
+                <div class="container-fluid p-0">
+                    <button type="button" id="sidebarCollapse" class="btn">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    
+                    <div class="ms-auto d-flex align-items-center">
+                        <div class="text-end me-3 d-none d-sm-block">
+                            <small class="text-muted d-block">Logged in as</small>
+                            <span class="text-light fw-medium">{{ current_user.username }}</span>
+                        </div>
+                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white font-weight-bold" style="width: 40px; height: 40px;">
+                            <span class="fw-bold">{{ current_user.username[0] | upper }}</span>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            {% endif %}
+
+            <!-- Main view block -->
+            <main class="flex-grow-1 {% if current_user.is_authenticated %}p-4{% else %}auth-wrapper py-5{% endif %}">
+                {% block content %}{% endblock %}
+            </main>
+
+            {% if current_user.is_authenticated %}
+            <!-- Footer -->
+            <footer class="py-3 text-center border-top border-opacity-10 border-white text-muted mt-auto" style="font-size: 0.85rem;">
+                <p class="mb-0">&copy; 2026 CyberSOC Dashboard. All Rights Reserved. Created for learning & portfolio purposes.</p>
+            </footer>
+            {% endif %}
+        </div>
+    </div>
+
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom Main JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

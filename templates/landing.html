@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}Welcome - CyberSOC Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+        <!-- Hero Section -->
+        <div class="row align-items-center justify-content-center min-vh-75 text-center text-lg-start g-5">
+            <div class="col-lg-6 animate-fade-in">
+                <div class="d-inline-flex align-items-center px-3 py-1 rounded-pill bg-primary bg-opacity-10 border border-primary border-opacity-25 text-primary mb-3">
+                    <i class="bi bi-shield-check me-2"></i>
+                    <span class="small fw-semibold">Phase 1 Release</span>
+                </div>
+                <h1 class="display-3 fw-bold tracking-tight text-white mb-3">
+                    CyberSOC <span class="text-primary text-gradient">Dashboard</span>
+                </h1>
+                <p class="lead text-secondary mb-4">
+                    An educational cybersecurity and networking platform combining multiple security analysis tools into one unified enterprise-grade dashboard.
+                </p>
+                <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start">
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary px-5 py-3 fs-5">
+                        <i class="bi bi-box-arrow-in-right me-2"></i> Access Dashboard
+                    </a>
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary px-5 py-3 fs-5">
+                        <i class="bi bi-person-plus me-2"></i> Register Analyst
+                    </a>
+                </div>
+            </div>
+            
+            <div class="col-lg-5 animate-fade-in" style="animation-delay: 0.1s;">
+                <div class="bg-dark-card rounded-4 p-4 border border-opacity-10 border-white text-start">
+                    <h3 class="h5 fw-bold text-white mb-4"><i class="bi bi-cpu text-primary me-2"></i> Tech Stack Integration</h3>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="p-3 rounded bg-secondary bg-opacity-40 border border-white border-opacity-5">
+                                <small class="text-muted d-block">Backend</small>
+                                <span class="text-light fw-medium">Python 3 & Flask</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 rounded bg-secondary bg-opacity-40 border border-white border-opacity-5">
+                                <small class="text-muted d-block">Frontend</small>
+                                <span class="text-light fw-medium">Bootstrap 5 & JS</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 rounded bg-secondary bg-opacity-40 border border-white border-opacity-5">
+                                <small class="text-muted d-block">Database</small>
+                                <span class="text-light fw-medium">SQLite3</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 rounded bg-secondary bg-opacity-40 border border-white border-opacity-5">
+                                <small class="text-muted d-block">Analytics</small>
+                                <span class="text-light fw-medium">Chart.js</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-top border-white border-opacity-5">
+                        <h4 class="h6 text-muted mb-3">Key Features</h4>
+                        <ul class="list-unstyled text-secondary small mb-0">
+                            <li class="mb-2"><i class="bi bi-check2-circle text-primary me-2"></i> Role-Based Authentication & Sessions</li>
+                            <li class="mb-2"><i class="bi bi-check2-circle text-primary me-2"></i> Custom-designed Enterprise Dark UI</li>
+                            <li class="mb-0"><i class="bi bi-check2-circle text-primary me-2"></i> Responsive Sidebar & Grid Layout</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info / Developer Section -->
+        <div class="row mt-5 pt-5 justify-content-center border-top border-white border-opacity-5">
+            <div class="col-md-10 text-center animate-fade-in" style="animation-delay: 0.2s;">
+                <h2 class="h3 fw-bold text-white mb-4">About The Developer</h2>
+                <div class="d-inline-flex align-items-center p-3 rounded-4 bg-dark-card border border-white border-opacity-5">
+                    <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white me-3" style="width: 48px; height: 48px;">
+                        <i class="bi bi-code-slash fs-5"></i>
+                    </div>
+                    <div class="text-start">
+                        <h5 class="mb-0 text-light fw-bold">Portfolio Project</h5>
+                        <p class="mb-0 text-muted small">Designed for security learning and portfolio presentation</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

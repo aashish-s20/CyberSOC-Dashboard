@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}404 Page Not Found - CyberSOC Dashboard{% endblock %}
+
+{% block content %}
+<div class="container d-flex flex-column align-items-center justify-content-center min-vh-75 text-center">
+    <div class="error-container p-5 rounded-4 border border-info border-opacity-25 bg-dark-card shadow-lg animate-fade-in" style="max-width: 500px;">
+        <div class="error-icon text-info mb-4">
+            <i class="bi bi-question-diamond-fill" style="font-size: 5rem;"></i>
+        </div>
+        <h1 class="display-4 fw-bold text-info mb-2">404</h1>
+        <h2 class="h4 text-light mb-3">Resource Missing</h2>
+        <p class="text-secondary mb-4">
+            The endpoint or file you are searching for does not exist on this server. Check the URL or return to dashboard.
+        </p>
+        <a href="{{ url_for('main.dashboard' if current_user.is_authenticated else 'main.landing') }}" class="btn btn-outline-primary px-4 py-2">
+            <i class="bi bi-arrow-left-short"></i> Back to Safety
+        </a>
+    </div>
+</div>
+{% endblock %}
