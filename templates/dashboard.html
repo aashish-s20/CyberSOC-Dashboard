@@ -1,135 +1,219 @@
 {% extends 'base.html' %}
 
-{% block title %}SOC Dashboard - CyberSOC Dashboard{% endblock %}
+{% block title %}CyberSOC Operations Console{% endblock %}
 
 {% block content %}
 <div class="container-fluid p-0 animate-fade-in">
-    <!-- Dashboard Header -->
+    <!-- Header -->
     <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
         <div>
             <h1 class="h2 fw-bold text-white mb-1">Security Operations Center</h1>
-            <p class="text-secondary mb-0">Real-time surveillance & threat analysis console</p>
+            <p class="text-secondary mb-0">Active enterprise defense dashboard</p>
         </div>
         <div class="d-flex align-items-center bg-secondary bg-opacity-20 border border-white border-opacity-5 rounded-3 px-3 py-2 text-secondary">
-            <i class="bi bi-clock-fill text-primary me-2"></i>
-            <span id="live-time" class="small fw-medium">Active Session</span>
+            <i class="bi bi-shield-fill-check text-primary me-2"></i>
+            <span class="small fw-semibold text-light">CONSOLE VERSION 2.0</span>
         </div>
     </div>
 
-    <!-- Metric Cards Row -->
+    <!-- 6 Metric Cards Grid -->
     <div class="row g-4 mb-4">
-        <!-- Welcome Card -->
-        <div class="col-12 col-md-6 col-xl-3">
+        <!-- 1. Application Status -->
+        <div class="col-12 col-md-6 col-xl-4">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded-3 p-2 text-primary me-3">
-                        <i class="bi bi-emoji-smile fs-4"></i>
-                    </div>
-                    <span class="text-secondary small fw-semibold">Greeting</span>
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Application Status</span>
+                    <span class="status-indicator success"></span>
                 </div>
-                <h3 class="h5 fw-bold text-white mb-2">Welcome Back!</h3>
-                <p class="text-muted small mb-0">System initialized successfully. Monitoring active.</p>
+                <h3 class="h4 fw-bold text-white mb-2">Active</h3>
+                <p class="text-muted small mb-0">Database connection operational</p>
             </div>
         </div>
 
-        <!-- Current User Card -->
-        <div class="col-12 col-md-6 col-xl-3">
+        <!-- 2. Current User -->
+        <div class="col-12 col-md-6 col-xl-4">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="bg-info bg-opacity-10 border border-info border-opacity-25 rounded-3 p-2 text-info me-3">
-                        <i class="bi bi-person-fill fs-4"></i>
-                    </div>
+                <div class="d-flex align-items-center justify-content-between mb-3">
                     <span class="text-secondary small fw-semibold">Current User</span>
+                    <i class="bi bi-person-circle text-info fs-5"></i>
                 </div>
-                <h3 class="h5 fw-bold text-white mb-2">{{ user.username }}</h3>
-                <p class="text-muted small mb-0">UID: {{ user.id }} | Email: {{ user.email }}</p>
+                <h3 class="h4 fw-bold text-white mb-2">{{ user.username }}</h3>
+                <p class="text-muted small mb-0">ID: {{ user.id }} | Email: {{ user.email }}</p>
             </div>
         </div>
 
-        <!-- Current Role Card -->
-        <div class="col-12 col-md-6 col-xl-3">
+        <!-- 3. Current Role -->
+        <div class="col-12 col-md-6 col-xl-4">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="bg-warning bg-opacity-10 border border-warning border-opacity-25 rounded-3 p-2 text-warning me-3">
-                        <i class="bi bi-shield-lock-fill fs-4"></i>
-                    </div>
-                    <span class="text-secondary small fw-semibold">Security Role</span>
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Current Role</span>
+                    <i class="bi bi-shield-lock-fill text-warning fs-5"></i>
                 </div>
-                <h3 class="h5 fw-bold text-white mb-2">
-                    <span class="badge bg-primary bg-opacity-25 border border-primary border-opacity-50 text-primary px-3 py-2 fs-6">{{ user.role }}</span>
+                <h3 class="h4 fw-bold text-white mb-2">
+                    <span class="badge bg-primary bg-opacity-25 border border-primary border-opacity-50 text-primary px-3 py-1 fs-6">{{ user.role }}</span>
                 </h3>
-                <p class="text-muted small mb-0">Privilege Level: Administrative</p>
+                <p class="text-muted small mb-0">SOC privilege level: Administrative</p>
             </div>
         </div>
 
-        <!-- Application Status Card -->
-        <div class="col-12 col-md-6 col-xl-3">
+        <!-- 4. System Health -->
+        <div class="col-12 col-md-6 col-xl-4">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="bg-success bg-opacity-10 border border-success border-opacity-25 rounded-3 p-2 text-success me-3">
-                        <i class="bi bi-activity fs-4"></i>
-                    </div>
-                    <span class="text-secondary small fw-semibold">App Status</span>
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">System Health</span>
+                    <i class="bi bi-cpu-fill text-primary fs-5"></i>
                 </div>
-                <h3 class="h5 fw-bold text-white mb-2 d-flex align-items-center">
-                    <span class="status-indicator success me-2"></span> Operational
+                <h3 class="h4 fw-bold text-white mb-2" id="system-health-telemetry">CPU: 12% | RAM: 43%</h3>
+                <p class="text-muted small mb-0">Thread count: 24 active processes</p>
+            </div>
+        </div>
+
+        <!-- 5. Current Time -->
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Current Time (UTC)</span>
+                    <i class="bi bi-clock-fill text-secondary fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2" id="live-time-card">00:00:00</h3>
+                <p class="text-muted small mb-0">System synchronization: Active</p>
+            </div>
+        </div>
+
+        <!-- 6. Last Login -->
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Last Login</span>
+                    <i class="bi bi-calendar-event-fill text-success fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.15rem;">
+                    {{ user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else 'First Session' }}
                 </h3>
-                <p class="text-muted small mb-0">Database: SQLite Connected</p>
+                <p class="text-muted small mb-0">Audited via system access records</p>
             </div>
         </div>
     </div>
 
-    <!-- Chart Visual Grid -->
-    <div class="row g-4">
-        <div class="col-12 col-xxl-8">
-            <div class="card bg-dark-card p-4 border border-white border-opacity-5 h-100">
-                <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
-                    <div>
-                        <h3 class="h5 fw-bold text-white mb-1">Threat Activity Stream</h3>
-                        <p class="text-muted small mb-0">Real-time alerts and detection logs index</p>
-                    </div>
-                    <span class="badge bg-secondary bg-opacity-20 border border-white border-opacity-5 text-secondary px-3 py-2">LIVE FEED</span>
-                </div>
-                
-                <!-- Chart canvas container -->
-                <div class="chart-container" style="position: relative; height: 320px; width: 100%;">
-                    <canvas id="threatChart"></canvas>
+    <!-- Quick Actions Panel -->
+    <div class="card bg-dark-card p-4 border border-white border-opacity-5 mb-4">
+        <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-lightning-charge-fill text-primary me-2"></i>Quick Actions</h3>
+        <div class="row g-3">
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="{{ url_for('main.scanner') }}" class="btn btn-outline-primary w-100 py-3 text-start d-flex align-items-center justify-content-between">
+                    <span><i class="bi bi-globe me-2"></i> Open Scanner</span>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="{{ url_for('main.reports') }}" class="btn btn-outline-primary w-100 py-3 text-start d-flex align-items-center justify-content-between">
+                    <span><i class="bi bi-bar-chart me-2"></i> View Reports</span>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="{{ url_for('main.threats') }}" class="btn btn-outline-primary w-100 py-3 text-start d-flex align-items-center justify-content-between">
+                    <span><i class="bi bi-globe-americas me-2"></i> Threat Intelligence</span>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <a href="{{ url_for('main.monitor') }}" class="btn btn-outline-primary w-100 py-3 text-start d-flex align-items-center justify-content-between">
+                    <span><i class="bi bi-broadcast me-2"></i> Network Monitor</span>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Grid (2x2 Layout) -->
+    <div class="row g-4 mb-4">
+        <!-- 1. Security Events -->
+        <div class="col-12 col-lg-6">
+            <div class="card bg-dark-card p-4 border border-white border-opacity-5">
+                <h3 class="h6 fw-bold text-white mb-3"><i class="bi bi-shield-exclamation text-primary me-2"></i>Security Events (Weekly Trend)</h3>
+                <div class="chart-container" style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="securityEventsChart"></canvas>
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-xxl-4">
-            <div class="card bg-dark-card p-4 border border-white border-opacity-5 h-100">
-                <h3 class="h5 fw-bold text-white mb-3">System Logs Summary</h3>
-                <div class="table-responsive">
-                    <table class="table table-dark table-borderless table-hover align-middle small mb-0">
-                        <thead>
-                            <tr class="border-bottom border-white border-opacity-10 text-muted">
-                                <th>Timestamp</th>
-                                <th>Severity</th>
-                                <th>Message</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="text-muted">Just Now</td>
-                                <td><span class="badge bg-info bg-opacity-15 text-info">INFO</span></td>
-                                <td class="text-secondary">Dashboard loaded for {{ user.username }}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">5m ago</td>
-                                <td><span class="badge bg-success bg-opacity-15 text-success">OK</span></td>
-                                <td class="text-secondary">Seeded system parameters initialized</td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">10m ago</td>
-                                <td><span class="badge bg-warning bg-opacity-15 text-warning">WARN</span></td>
-                                <td class="text-secondary">Database tables loaded successfully</td>
-                            </tr>
-                        </tbody>
-                    </table>
+        <!-- 2. Network Activity -->
+        <div class="col-12 col-lg-6">
+            <div class="card bg-dark-card p-4 border border-white border-opacity-5">
+                <h3 class="h6 fw-bold text-white mb-3"><i class="bi bi-activity text-primary me-2"></i>Network Activity (Throughput)</h3>
+                <div class="chart-container" style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="networkActivityChart"></canvas>
                 </div>
             </div>
+        </div>
+
+        <!-- 3. Incident Overview -->
+        <div class="col-12 col-lg-6">
+            <div class="card bg-dark-card p-4 border border-white border-opacity-5">
+                <h3 class="h6 fw-bold text-white mb-3"><i class="bi bi-clipboard-check text-primary me-2"></i>Incident Overview (Severity Breakdown)</h3>
+                <div class="chart-container" style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="incidentOverviewChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Threat Distribution -->
+        <div class="col-12 col-lg-6">
+            <div class="card bg-dark-card p-4 border border-white border-opacity-5">
+                <h3 class="h6 fw-bold text-white mb-3"><i class="bi bi-virus text-primary me-2"></i>Threat Distribution (Vectors)</h3>
+                <div class="chart-container" style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="threatDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity Stream -->
+    <div class="card bg-dark-card p-4 border border-white border-opacity-5">
+        <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+            <div>
+                <h3 class="h5 fw-bold text-white mb-1"><i class="bi bi-list-task text-primary me-2"></i>Recent Activity Stream</h3>
+                <p class="text-muted small mb-0">Auditable system actions and operations history</p>
+            </div>
+            <span class="badge bg-secondary bg-opacity-20 border border-white border-opacity-5 text-secondary px-3 py-2">LOG ENGINE READY</span>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="border-bottom border-white border-opacity-10 text-muted">
+                        <th>Timestamp</th>
+                        <th>Event Type</th>
+                        <th>User</th>
+                        <th>Action Details</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="text-muted">Just Now</td>
+                        <td><span class="badge bg-primary bg-opacity-15 text-primary">DASHBOARD ACCESS</span></td>
+                        <td class="text-secondary fw-semibold">{{ user.username }}</td>
+                        <td class="text-secondary">Dashboard view metrics fetched and loaded</td>
+                        <td><span class="badge bg-success bg-opacity-15 text-success">SUCCESS</span></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">3m ago</td>
+                        <td><span class="badge bg-info bg-opacity-15 text-info">USER LOGIN</span></td>
+                        <td class="text-secondary fw-semibold">{{ user.username }}</td>
+                        <td class="text-secondary">User session authenticated via console portal</td>
+                        <td><span class="badge bg-success bg-opacity-15 text-success">SUCCESS</span></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">10m ago</td>
+                        <td><span class="badge bg-warning bg-opacity-15 text-warning">SYSTEM</span></td>
+                        <td class="text-secondary fw-semibold">system</td>
+                        <td class="text-secondary">CyberSOC Core Services version 2.0 started</td>
+                        <td><span class="badge bg-success bg-opacity-15 text-success">ONLINE</span></td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -140,9 +224,20 @@
     // Live ticking time clock script inside the header
     function updateClock() {
         const now = new Date();
-        document.getElementById('live-time').innerText = 'UTC Time: ' + now.toISOString().replace('T', ' ').substring(0, 19);
+        document.getElementById('live-time-card').innerText = now.toISOString().replace('T', ' ').substring(11, 19) + ' UTC';
     }
     updateClock();
     setInterval(updateClock, 1000);
+
+    // Mock CPU/RAM updates
+    function updateSystemHealth() {
+        const mockCpu = Math.floor(Math.random() * 15) + 5; // 5% to 20%
+        const mockRam = Math.floor(Math.random() * 5) + 38; // 38% to 43%
+        const el = document.getElementById('system-health-telemetry');
+        if (el) {
+            el.innerText = `CPU: ${mockCpu}% | RAM: ${mockRam}%`;
+        }
+    }
+    setInterval(updateSystemHealth, 3000);
 </script>
 {% endblock %}

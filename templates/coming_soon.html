@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ module_name }} - Under Development{% endblock %}
+
+{% block content %}
+<div class="container d-flex flex-column align-items-center justify-content-center min-vh-75 text-center animate-fade-in">
+    <div class="card bg-dark-card p-5 rounded-4 border border-primary border-opacity-20 shadow-lg text-center" style="max-width: 600px;">
+        <!-- Animated visual indicator -->
+        <div class="coming-soon-visual mb-4">
+            <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 border border-primary border-opacity-30 rounded-circle p-4 mb-3 text-primary animate-pulse" style="width: 100px; height: 100px;">
+                <i class="bi bi-cone-striped" style="font-size: 3.5rem;"></i>
+            </div>
+        </div>
+        
+        <!-- Status Badge -->
+        <div class="mb-3">
+            <span class="badge bg-warning bg-opacity-10 border border-warning border-opacity-40 text-warning px-3 py-2 fw-semibold">
+                <i class="bi bi-clock-history me-1"></i> Status: {{ status }}
+            </span>
+        </div>
+
+        <!-- Module Details -->
+        <h1 class="h2 fw-bold text-white mb-3">{{ module_name }}</h1>
+        <p class="text-secondary leading-relaxed mb-4">
+            {{ description }}
+        </p>
+
+        <!-- Informative note -->
+        <div class="p-3 bg-secondary bg-opacity-20 border border-white border-opacity-5 rounded-3 mb-4 text-start">
+            <small class="text-muted d-block uppercase tracking-wider mb-1"><i class="bi bi-info-circle me-1"></i> Phase 2 Status</small>
+            <p class="mb-0 text-secondary small">This feature belongs to a future development phase. The frontend routing structure is verified and session-secured.</p>
+        </div>
+
+        <!-- Call to Action -->
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary px-5 py-3 fs-6">
+            <i class="bi bi-arrow-left me-2"></i> Return to Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

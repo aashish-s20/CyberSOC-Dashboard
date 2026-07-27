@@ -50,7 +50,47 @@
             <ul class="list-unstyled components">
                 <li class="{% if request.endpoint == 'main.dashboard' %}active{% endif %}">
                     <a href="{{ url_for('main.dashboard') }}">
-                        <i class="bi bi-speedometer2"></i> Dashboard
+                        <i class="bi bi-house-door"></i> Dashboard
+                    </a>
+                </li>
+                <li class="{% if request.endpoint == 'main.scanner' %}active{% endif %}">
+                    <a href="{{ url_for('main.scanner') }}">
+                        <i class="bi bi-globe"></i> Network Scanner
+                    </a>
+                </li>
+                <li class="{% if request.endpoint == 'main.monitor' %}active{% endif %}">
+                    <a href="{{ url_for('main.monitor') }}">
+                        <i class="bi bi-broadcast"></i> Network Monitor
+                    </a>
+                </li>
+                <li class="{% if request.endpoint == 'main.analyzer' %}active{% endif %}">
+                    <a href="{{ url_for('main.analyzer') }}">
+                        <i class="bi bi-file-earmark-text"></i> Log Analyzer
+                    </a>
+                </li>
+                <li class="{% if request.endpoint == 'main.vault' %}active{% endif %}">
+                    <a href="{{ url_for('main.vault') }}">
+                        <i class="bi bi-lock"></i> SecureVault
+                    </a>
+                </li>
+                <li class="{% if request.endpoint == 'main.threats' %}active{% endif %}">
+                    <a href="{{ url_for('main.threats') }}">
+                        <i class="bi bi-globe-americas"></i> Threat Intelligence
+                    </a>
+                </li>
+                <li class="{% if request.endpoint == 'main.alerts' %}active{% endif %}">
+                    <a href="{{ url_for('main.alerts') }}">
+                        <i class="bi bi-bell"></i> Alerts
+                    </a>
+                </li>
+                <li class="{% if request.endpoint == 'main.incidents' %}active{% endif %}">
+                    <a href="{{ url_for('main.incidents') }}">
+                        <i class="bi bi-clipboard-data"></i> Incidents
+                    </a>
+                </li>
+                <li class="{% if request.endpoint == 'main.reports' %}active{% endif %}">
+                    <a href="{{ url_for('main.reports') }}">
+                        <i class="bi bi-bar-chart"></i> Reports
                     </a>
                 </li>
                 
