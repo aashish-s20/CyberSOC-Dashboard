@@ -4,9 +4,11 @@ from flask_login import LoginManager
 from config import Config
 from models.db import db
 from models.user import User
+from models.scan import NetworkScan, PortResult, DNSResult
 from routes.auth import auth_bp
 from routes.main import main_bp
 from routes.errors import errors_bp
+
 
 def create_app(config_class=Config):
     app = Flask(__name__)

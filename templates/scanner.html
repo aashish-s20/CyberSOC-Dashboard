@@ -1,0 +1,448 @@
+{% extends 'base.html' %}
+
+{% block title %}NetSecure Scanner - CyberSOC{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 animate-fade-in">
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-shield-shaded text-primary me-2"></i>NetSecure Scanner</h1>
+            <p class="text-secondary mb-0">Authorized host audit and credentials assessment toolkit</p>
+        </div>
+        <div>
+            <a href="{{ url_for('main.export_scans') }}" class="btn btn-outline-primary px-4 py-2">
+                <i class="bi bi-file-earmark-spreadsheet me-2"></i> Export History (CSV)
+            </a>
+        </div>
+    </div>
+
+    <!-- Scanner Forms and Tabs Card -->
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-xl-8">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4">
+                <!-- Navigation Tabs -->
+                <div class="card-header bg-secondary bg-opacity-20 border-bottom border-white border-opacity-5">
+                    <ul class="nav nav-tabs card-header-tabs border-0" id="scannerTab" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active text-light px-3 py-2 border-0" id="discovery-tab" data-bs-toggle="tab" data-bs-target="#discovery" type="button" role="tab">
+                                <i class="bi bi-broadcast me-2"></i>Host Discovery
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link text-light px-3 py-2 border-0" id="ports-tab" data-bs-toggle="tab" data-bs-target="#ports" type="button" role="tab">
+                                <i class="bi bi-hdd-network me-2"></i>Port Scanner
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link text-light px-3 py-2 border-0" id="dns-tab" data-bs-toggle="tab" data-bs-target="#dns" type="button" role="tab">
+                                <i class="bi bi-dns me-2"></i>DNS Lookup
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link text-light px-3 py-2 border-0" id="whois-tab" data-bs-toggle="tab" data-bs-target="#whois" type="button" role="tab">
+                                <i class="bi bi-search me-2"></i>WHOIS Lookup
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link text-light px-3 py-2 border-0" id="ssl-tab" data-bs-toggle="tab" data-bs-target="#ssl" type="button" role="tab">
+                                <i class="bi bi-patch-check me-2"></i>SSL Cert Viewer
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link text-light px-3 py-2 border-0" id="password-tab" data-bs-toggle="tab" data-bs-target="#password" type="button" role="tab">
+                                <i class="bi bi-key me-2"></i>Password Strength
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Tab Content Forms -->
+                <div class="card-body p-4">
+                    <div class="tab-content" id="scannerTabContent">
+                        
+                        <!-- 1. Host Discovery -->
+                        <div class="tab-pane fade show active" id="discovery" role="tabpanel">
+                            <h4 class="h5 text-white fw-bold mb-2">Active Host Discovery</h4>
+                            <p class="text-secondary small mb-4">Validate IPv4 or hostname to check ICMP reachability and socket handshake fallbacks.</p>
+                            <form class="scan-form" data-type="Host Discovery">
+                                <div class="mb-3">
+                                    <label class="form-label text-secondary small fw-medium">Target Host / IP Address</label>
+                                    <input type="text" class="form-control" name="target" placeholder="e.g. 127.0.0.1 or example.com" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary px-4 py-2">Run Reachability Scan</button>
+                            </form>
+                        </div>
+
+                        <!-- 2. Port Scanner -->
+                        <div class="tab-pane fade" id="ports" role="tabpanel">
+                            <h4 class="h5 text-white fw-bold mb-2">TCP Port Scanner</h4>
+                            <p class="text-secondary small mb-4">Conduct port checks. Scans common default ports or a custom range (Max range: 1000 ports).</p>
+                            <form class="scan-form" data-type="Port Scan">
+                                <div class="row g-3 mb-3">
+                                    <div class="col-12 col-md-8">
+                                        <label class="form-label text-secondary small fw-medium">Target Host / IP Address</label>
+                                        <input type="text" class="form-control" name="target" placeholder="e.g. 127.0.0.1 or example.com" required>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <label class="form-label text-secondary small fw-medium">Ports Range (Optional)</label>
+                                        <input type="text" class="form-control" name="port_range" placeholder="e.g. 20-100 (Default: Common)">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary px-4 py-2">Run Port Scan</button>
+                            </form>
+                        </div>
+
+                        <!-- 3. DNS Lookup -->
+                        <div class="tab-pane fade" id="dns" role="tabpanel">
+                            <h4 class="h5 text-white fw-bold mb-2">DNS Records lookup</h4>
+                            <p class="text-secondary small mb-4">Query global nameservers for A, AAAA, MX, NS, and CNAME records.</p>
+                            <form class="scan-form" data-type="DNS Lookup">
+                                <div class="mb-3">
+                                    <label class="form-label text-secondary small fw-medium">Target Domain Name</label>
+                                    <input type="text" class="form-control" name="target" placeholder="e.g. example.com" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary px-4 py-2">Run DNS Query</button>
+                            </form>
+                        </div>
+
+                        <!-- 4. WHOIS Lookup -->
+                        <div class="tab-pane fade" id="whois" role="tabpanel">
+                            <h4 class="h5 text-white fw-bold mb-2">WHOIS Domain Registry Query</h4>
+                            <p class="text-secondary small mb-4">Fetch registrar name, creation and expiration dates, and nameservers index.</p>
+                            <form class="scan-form" data-type="WHOIS">
+                                <div class="mb-3">
+                                    <label class="form-label text-secondary small fw-medium">Target Domain Name</label>
+                                    <input type="text" class="form-control" name="target" placeholder="e.g. google.com" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary px-4 py-2">Run WHOIS Query</button>
+                            </form>
+                        </div>
+
+                        <!-- 5. SSL Cert Viewer -->
+                        <div class="tab-pane fade" id="ssl" role="tabpanel">
+                            <h4 class="h5 text-white fw-bold mb-2">SSL/TLS Certificate Decoder</h4>
+                            <p class="text-secondary small mb-4">Analyze certificate issuer, validity range, expiration, and remaining days.</p>
+                            <form class="scan-form" data-type="SSL Certificate">
+                                <div class="mb-3">
+                                    <label class="form-label text-secondary small fw-medium">Target Domain Name</label>
+                                    <input type="text" class="form-control" name="target" placeholder="e.g. google.com" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary px-4 py-2">Inspect Certificate</button>
+                            </form>
+                        </div>
+
+                        <!-- 6. Password Strength Checker -->
+                        <div class="tab-pane fade" id="password" role="tabpanel">
+                            <h4 class="h5 text-white fw-bold mb-2">Secure Password Strength Auditor</h4>
+                            <p class="text-secondary small mb-4">Validate length, character variations, symbols, and estimate strength score. <strong>Passwords are never saved.</strong></p>
+                            <form class="scan-form" data-type="Password Strength">
+                                <div class="mb-3">
+                                    <label class="form-label text-secondary small fw-medium">Enter Password to Audit</label>
+                                    <input type="password" class="form-control" name="target" placeholder="Enter password to inspect" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary px-4 py-2">Evaluate Password</button>
+                            </form>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Scanning Loader & Alert Notification -->
+        <div class="col-12 col-xl-4">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 h-100 d-flex flex-column justify-content-between p-4">
+                <div>
+                    <h3 class="h5 fw-bold text-white mb-3">Live Feed Scanner Output</h3>
+                    
+                    <!-- Default Idle State -->
+                    <div id="scanner-idle-state" class="text-center py-5">
+                        <i class="bi bi-terminal text-muted display-4 mb-3"></i>
+                        <p class="text-secondary small mb-0">Select a tool tab and launch a scan to see real-time output stream here.</p>
+                    </div>
+
+                    <!-- Loader State -->
+                    <div id="scanner-loading-state" class="text-center py-5 d-none">
+                        <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                        <h5 class="text-light fw-bold">Executing Scan Task...</h5>
+                        <p class="text-secondary small">Gathering network metrics. Please wait.</p>
+                    </div>
+
+                    <!-- Scan Results Output (Filled by JS) -->
+                    <div id="scanner-results-state" class="d-none">
+                        <div class="p-3 bg-secondary bg-opacity-25 border border-white border-opacity-5 rounded-3 mb-3">
+                            <small class="text-muted d-block uppercase tracking-wider mb-1">Scan Metadata</small>
+                            <span class="text-light fw-medium d-block" id="result-meta-type">Host Discovery</span>
+                            <span class="text-secondary small d-block" id="result-meta-target">Target: 127.0.0.1</span>
+                        </div>
+                        <div class="table-responsive" style="max-height: 300px;">
+                            <div id="result-body-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scan History List Card -->
+    <div class="card bg-dark-card p-4 border border-white border-opacity-5 rounded-4">
+        <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-clock-history text-primary me-2"></i>My Scan History</h3>
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="border-bottom border-white border-opacity-10 text-muted">
+                        <th>Scan ID</th>
+                        <th>Scan Type</th>
+                        <th>Target</th>
+                        <th>Timestamp (UTC)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="scan-history-tbody">
+                    {% for s in scans %}
+                    <tr class="border-bottom border-white border-opacity-5">
+                        <td class="text-muted fw-bold">#{{ s.id }}</td>
+                        <td><span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-20 px-2 py-1">{{ s.scan_type }}</span></td>
+                        <td class="text-light fw-medium">{{ s.target }}</td>
+                        <td class="text-secondary">{{ s.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>
+                            <a href="{{ url_for('main.scan_detail', scan_id=s.id) }}" class="btn btn-outline-primary btn-sm px-3">
+                                <i class="bi bi-eye-fill"></i> View Details
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-secondary">No previous scans found in your records.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const forms = document.querySelectorAll('.scan-form');
+    const idleState = document.getElementById('scanner-idle-state');
+    const loadingState = document.getElementById('scanner-loading-state');
+    const resultsState = document.getElementById('scanner-results-state');
+
+    const metaType = document.getElementById('result-meta-type');
+    const metaTarget = document.getElementById('result-meta-target');
+    const bodyContainer = document.getElementById('result-body-container');
+    const historyTbody = document.getElementById('scan-history-tbody');
+
+    forms.forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Set loading state
+            idleState.classList.add('d-none');
+            resultsState.classList.add('d-none');
+            loadingState.classList.remove('d-none');
+
+            const scanType = form.getAttribute('data-type');
+            const target = form.querySelector('[name="target"]').value;
+            const portRangeInput = form.querySelector('[name="port_range"]');
+            const portRange = portRangeInput ? portRangeInput.value : '';
+
+            // Construct form payload
+            const payload = new URLSearchParams();
+            payload.append('scan_type', scanType);
+            payload.append('target', target);
+            if (portRange) payload.append('port_range', portRange);
+
+            fetch("{{ url_for('main.run_scan') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: payload
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadingState.classList.add('d-none');
+                
+                if (!data.success) {
+                    idleState.classList.remove('d-none');
+                    alert("Scan Error: " + data.error);
+                    return;
+                }
+
+                // Render results
+                metaType.innerText = scanType;
+                metaTarget.innerText = "Target: " + (scanType === 'Password Strength' ? '[Redacted Password]' : target);
+                bodyContainer.innerHTML = generateResultHTML(scanType, data.results);
+                
+                resultsState.classList.remove('d-none');
+                
+                // Add to history table dynamically
+                prependHistoryRow(data.scan_id, scanType, scanType === 'Password Strength' ? '[Redacted Password]' : target);
+            })
+            .catch(error => {
+                loadingState.classList.add('d-none');
+                idleState.classList.remove('d-none');
+                alert("Execution error connecting to the SOC engine.");
+                console.error(error);
+            });
+        });
+    });
+
+    function prependHistoryRow(id, type, target) {
+        const tr = document.createElement('tr');
+        tr.className = "border-bottom border-white border-opacity-5 animate-fade-in";
+        
+        const now = new Date();
+        const utcStr = now.toISOString().replace('T', ' ').substring(0, 19);
+
+        // Build path dynamically
+        let detailUrl = "{{ url_for('main.scan_detail', scan_id=0) }}".replace('/0', '/' + id);
+
+        tr.innerHTML = `
+            <td class="text-muted fw-bold">#${id}</td>
+            <td><span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-20 px-2 py-1">${type}</span></td>
+            <td class="text-light fw-medium">${target}</td>
+            <td class="text-secondary">${utcStr}</td>
+            <td>
+                <a href="${detailUrl}" class="btn btn-outline-primary btn-sm px-3">
+                    <i class="bi bi-eye-fill"></i> View Details
+                </a>
+            </td>
+        `;
+        
+        // Remove empty placeholder row if exists
+        if (historyTbody.children.length === 1 && historyTbody.children[0].querySelector('td[colspan="5"]')) {
+            historyTbody.innerHTML = '';
+        }
+        
+        historyTbody.insertBefore(tr, historyTbody.firstChild);
+    }
+
+    function generateResultHTML(type, results) {
+        let html = '';
+        
+        if (type === 'Host Discovery') {
+            const statusClass = results.reachable ? 'text-success' : 'text-danger';
+            const icon = results.reachable ? 'bi-check-circle-fill' : 'bi-x-circle-fill';
+            html = `
+                <div class="text-center py-3">
+                    <i class="bi ${icon} ${statusClass} display-6 mb-2"></i>
+                    <h5 class="${statusClass} fw-bold">${results.reachable ? 'Host Online' : 'Host Offline'}</h5>
+                    <p class="text-secondary small mb-0">${results.message}</p>
+                </div>
+            `;
+        }
+        
+        else if (type === 'Port Scan') {
+            html = `
+                <table class="table table-dark table-borderless align-middle small mb-0">
+                    <thead>
+                        <tr class="border-bottom border-white border-opacity-10 text-muted">
+                            <th>Port</th>
+                            <th>Service</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            results.results.forEach(p => {
+                const badgeClass = p.status === 'Open' ? 'bg-success bg-opacity-15 text-success' : 'bg-secondary bg-opacity-20 text-muted';
+                html += `
+                    <tr>
+                        <td class="fw-bold">${p.port}</td>
+                        <td class="text-light">${p.service}</td>
+                        <td><span class="badge ${badgeClass}">${p.status}</span></td>
+                    </tr>
+                `;
+            });
+            html += '</tbody></table>';
+        }
+        
+        else if (type === 'DNS Lookup') {
+            html = '<div class="d-flex flex-column gap-3">';
+            for (let recType in results.records) {
+                const values = results.records[recType];
+                if (values.length > 0) {
+                    html += `
+                        <div class="border-bottom border-white border-opacity-5 pb-2">
+                            <span class="badge bg-info bg-opacity-15 text-info mb-2">${recType} Records</span>
+                            <ul class="list-unstyled text-secondary mb-0 small">
+                                ${values.map(val => `<li class="text-light mb-1"><i class="bi bi-arrow-right-short text-muted"></i> ${val}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+            }
+            if (html === '<div class="d-flex flex-column gap-3">') {
+                html += '<p class="text-secondary text-center small my-3">No DNS records resolved for this target.</p>';
+            }
+            html += '</div>';
+        }
+        
+        else if (type === 'WHOIS') {
+            html = `
+                <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                    <tbody>
+                        <tr><td class="text-muted">Registrar</td><td class="text-light text-end">${results.registrar}</td></tr>
+                        <tr><td class="text-muted">Created</td><td class="text-light text-end">${results.creation_date}</td></tr>
+                        <tr><td class="text-muted">Expires</td><td class="text-light text-end">${results.expiration_date}</td></tr>
+                        <tr><td class="text-muted">NS Records</td><td class="text-light text-end" style="word-break: break-all;">${results.name_servers}</td></tr>
+                        <tr><td class="text-muted">Domain Status</td><td class="text-light text-end" style="word-break: break-all;">${results.status}</td></tr>
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        else if (type === 'SSL Certificate') {
+            html = `
+                <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                    <tbody>
+                        <tr><td class="text-muted">Subject Common Name</td><td class="text-light text-end">${results.subject}</td></tr>
+                        <tr><td class="text-muted">Certificate Issuer</td><td class="text-light text-end">${results.issuer}</td></tr>
+                        <tr><td class="text-muted">Valid From</td><td class="text-light text-end">${results.valid_from}</td></tr>
+                        <tr><td class="text-muted">Valid Until</td><td class="text-light text-end">${results.valid_until}</td></tr>
+                        <tr><td class="text-muted">Days Remaining</td><td class="text-light text-end font-monospace">${results.days_remaining}</td></tr>
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        else if (type === 'Password Strength') {
+            const scorePercent = (results.score / 5) * 100;
+            let strengthClass = 'bg-danger';
+            if (results.strength === 'Medium') strengthClass = 'bg-warning';
+            else if (results.strength === 'Strong') strengthClass = 'bg-info';
+            else if (results.strength === 'Very Strong') strengthClass = 'bg-success';
+
+            html = `
+                <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <small class="text-muted">Estimated Strength</small>
+                        <span class="badge ${strengthClass} bg-opacity-25 text-light border border-white border-opacity-10">${results.strength}</span>
+                    </div>
+                    <div class="progress" style="height: 8px; background-color: rgba(255,255,255,0.05);">
+                        <div class="progress-bar ${strengthClass}" role="progressbar" style="width: ${scorePercent}%;"></div>
+                    </div>
+                </div>
+                <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                    <tbody>
+                        <tr><td class="text-muted">Characters Count</td><td class="text-light text-end">${results.length}</td></tr>
+                        <tr><td class="text-muted">Uppercase Letters</td><td class="text-light text-end">${results.has_uppercase ? 'Yes' : 'No'}</td></tr>
+                        <tr><td class="text-muted">Lowercase Letters</td><td class="text-light text-end">${results.has_lowercase ? 'Yes' : 'No'}</td></tr>
+                        <tr><td class="text-muted">Numbers Present</td><td class="text-light text-end">${results.has_numbers ? 'Yes' : 'No'}</td></tr>
+                        <tr><td class="text-muted">Symbols Present</td><td class="text-light text-end">${results.has_symbols ? 'Yes' : 'No'}</td></tr>
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        return html;
+    }
+});
+</script>
+{% endblock %}

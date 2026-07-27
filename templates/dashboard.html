@@ -11,8 +11,8 @@
             <p class="text-secondary mb-0">Active enterprise defense dashboard</p>
         </div>
         <div class="d-flex align-items-center bg-secondary bg-opacity-20 border border-white border-opacity-5 rounded-3 px-3 py-2 text-secondary">
-            <i class="bi bi-shield-fill-check text-primary me-2"></i>
-            <span class="small fw-semibold text-light">CONSOLE VERSION 2.0</span>
+            <i class="bi bi-clock-fill text-primary me-2"></i>
+            <span id="live-time-card" class="small fw-semibold text-light">00:00:00 UTC</span>
         </div>
     </div>
 
@@ -38,7 +38,7 @@
                     <i class="bi bi-person-circle text-info fs-5"></i>
                 </div>
                 <h3 class="h4 fw-bold text-white mb-2">{{ user.username }}</h3>
-                <p class="text-muted small mb-0">ID: {{ user.id }} | Email: {{ user.email }}</p>
+                <p class="text-muted small mb-0">ID: {{ user.id }} | Role: {{ user.role }}</p>
             </div>
         </div>
 
@@ -68,29 +68,29 @@
             </div>
         </div>
 
-        <!-- 5. Current Time -->
+        <!-- 5. Total Scans -->
         <div class="col-12 col-md-6 col-xl-4">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Current Time (UTC)</span>
-                    <i class="bi bi-clock-fill text-secondary fs-5"></i>
+                    <span class="text-secondary small fw-semibold">Total Scans</span>
+                    <i class="bi bi-shield-shaded text-info fs-5"></i>
                 </div>
-                <h3 class="h4 fw-bold text-white mb-2" id="live-time-card">00:00:00</h3>
-                <p class="text-muted small mb-0">System synchronization: Active</p>
+                <h3 class="h4 fw-bold text-white mb-2">{{ total_scans }}</h3>
+                <p class="text-muted small mb-0">Logged network audits</p>
             </div>
         </div>
 
-        <!-- 6. Last Login -->
+        <!-- 6. Last Scan Time -->
         <div class="col-12 col-md-6 col-xl-4">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Last Login</span>
-                    <i class="bi bi-calendar-event-fill text-success fs-5"></i>
+                    <span class="text-secondary small fw-semibold">Last Scan Time</span>
+                    <i class="bi bi-calendar-check-fill text-success fs-5"></i>
                 </div>
                 <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.15rem;">
-                    {{ user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else 'First Session' }}
+                    {{ last_scan.timestamp.strftime('%Y-%m-%d %H:%M:%S') if last_scan else 'No scans run' }}
                 </h3>
-                <p class="text-muted small mb-0">Audited via system access records</p>
+                <p class="text-muted small mb-0">UTC timestamp of last query</p>
             </div>
         </div>
     </div>
@@ -169,49 +169,47 @@
         </div>
     </div>
 
-    <!-- Recent Activity Stream -->
-    <div class="card bg-dark-card p-4 border border-white border-opacity-5">
+    <!-- Recent Scans Stream -->
+    <div class="card bg-dark-card p-4 border border-white border-opacity-5 rounded-4">
         <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
             <div>
-                <h3 class="h5 fw-bold text-white mb-1"><i class="bi bi-list-task text-primary me-2"></i>Recent Activity Stream</h3>
-                <p class="text-muted small mb-0">Auditable system actions and operations history</p>
+                <h3 class="h5 fw-bold text-white mb-1"><i class="bi bi-clock-history text-primary me-2"></i>Recent Scans Activity</h3>
+                <p class="text-muted small mb-0">Auditable network scanner events logged in this session</p>
             </div>
-            <span class="badge bg-secondary bg-opacity-20 border border-white border-opacity-5 text-secondary px-3 py-2">LOG ENGINE READY</span>
+            <a href="{{ url_for('main.scanner') }}" class="btn btn-outline-primary btn-sm px-3">Go to Scanner</a>
         </div>
         
         <div class="table-responsive">
             <table class="table table-dark table-borderless table-hover align-middle small mb-0">
                 <thead>
                     <tr class="border-bottom border-white border-opacity-10 text-muted">
-                        <th>Timestamp</th>
-                        <th>Event Type</th>
+                        <th>Scan ID</th>
+                        <th>Scan Type</th>
+                        <th>Target</th>
                         <th>User</th>
-                        <th>Action Details</th>
-                        <th>Status</th>
+                        <th>Timestamp (UTC)</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td class="text-muted">Just Now</td>
-                        <td><span class="badge bg-primary bg-opacity-15 text-primary">DASHBOARD ACCESS</span></td>
-                        <td class="text-secondary fw-semibold">{{ user.username }}</td>
-                        <td class="text-secondary">Dashboard view metrics fetched and loaded</td>
-                        <td><span class="badge bg-success bg-opacity-15 text-success">SUCCESS</span></td>
+                    {% for s in recent_scans %}
+                    <tr class="border-bottom border-white border-opacity-5">
+                        <td class="text-muted fw-bold">#{{ s.id }}</td>
+                        <td><span class="badge bg-primary bg-opacity-15 text-primary border border-primary border-opacity-30">{{ s.scan_type }}</span></td>
+                        <td class="text-light fw-medium">{{ s.target }}</td>
+                        <td class="text-secondary fw-semibold">{{ s.user.username }}</td>
+                        <td class="text-secondary">{{ s.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>
+                            <a href="{{ url_for('main.scan_detail', scan_id=s.id) }}" class="btn btn-outline-primary btn-sm px-2">
+                                <i class="bi bi-eye-fill"></i> View Details
+                            </a>
+                        </td>
                     </tr>
+                    {% else %}
                     <tr>
-                        <td class="text-muted">3m ago</td>
-                        <td><span class="badge bg-info bg-opacity-15 text-info">USER LOGIN</span></td>
-                        <td class="text-secondary fw-semibold">{{ user.username }}</td>
-                        <td class="text-secondary">User session authenticated via console portal</td>
-                        <td><span class="badge bg-success bg-opacity-15 text-success">SUCCESS</span></td>
+                        <td colspan="6" class="text-center py-4 text-secondary">No recent scans detected. Click "Open Scanner" to run a security audit.</td>
                     </tr>
-                    <tr>
-                        <td class="text-muted">10m ago</td>
-                        <td><span class="badge bg-warning bg-opacity-15 text-warning">SYSTEM</span></td>
-                        <td class="text-secondary fw-semibold">system</td>
-                        <td class="text-secondary">CyberSOC Core Services version 2.0 started</td>
-                        <td><span class="badge bg-success bg-opacity-15 text-success">ONLINE</span></td>
-                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -224,7 +222,10 @@
     // Live ticking time clock script inside the header
     function updateClock() {
         const now = new Date();
-        document.getElementById('live-time-card').innerText = now.toISOString().replace('T', ' ').substring(11, 19) + ' UTC';
+        const el = document.getElementById('live-time-card');
+        if (el) {
+            el.innerText = now.toISOString().replace('T', ' ').substring(11, 19) + ' UTC';
+        }
     }
     updateClock();
     setInterval(updateClock, 1000);
