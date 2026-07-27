@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+
+{% block title %}LogShield Analyzer - CyberSOC{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 animate-fade-in">
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-file-earmark-text text-primary me-2"></i>LogShield Analyzer</h1>
+            <p class="text-secondary mb-0">Security log ingestion, format parsing, and automated signature threat detection</p>
+        </div>
+    </div>
+
+    <!-- Drag & Drop Ingestion Card -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-5 mb-4 text-center" id="drop-zone">
+        <i class="bi bi-cloud-upload text-primary display-3 mb-3 d-block"></i>
+        <h3 class="h4 fw-bold text-white mb-2">Upload Security Logs</h3>
+        <p class="text-secondary small mb-4">Drag and drop file here, or click to browse. Supports <strong>.log, .txt, .csv</strong> (Max size: 5MB)</p>
+        
+        <form id="upload-form" class="d-none">
+            <input type="file" id="file-input" name="logfile" accept=".log,.txt,.csv">
+        </form>
+
+        <div class="d-flex justify-content-center">
+            <button type="button" class="btn btn-primary px-5 py-3" onclick="document.getElementById('file-input').click()">
+                <i class="bi bi-folder2-open me-2"></i> Browse Files
+            </button>
+        </div>
+
+        <!-- Upload Progress Indicator -->
+        <div class="w-100 max-width-md mx-auto mt-4 d-none" id="progress-container">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+                <small class="text-muted" id="upload-status-text">Ingesting file logs...</small>
+                <small class="text-light fw-bold" id="upload-percent">0%</small>
+            </div>
+            <div class="progress" style="height: 6px; background-color: rgba(255,255,255,0.05);">
+                <div class="progress-bar bg-primary" id="upload-bar" role="progressbar" style="width: 0%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Uploads History List Card -->
+    <div class="card bg-dark-card p-4 border border-white border-opacity-5 rounded-4">
+        <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-clock-history text-primary me-2"></i>Analyzed Logs Record</h3>
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="border-bottom border-white border-opacity-10 text-muted">
+                        <th>Session ID</th>
+                        <th>Filename</th>
+                        <th>Ingestion Timestamp (UTC)</th>
+                        <th>Total Events</th>
+                        <th>Threat Count</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="history-tbody">
+                    {% for f in files %}
+                    <tr class="border-bottom border-white border-opacity-5">
+                        <td class="text-muted fw-bold">#{{ f.id }}</td>
+                        <td class="text-light fw-medium">{{ f.filename }}</td>
+                        <td class="text-secondary">{{ f.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td><span class="badge bg-secondary bg-opacity-25 text-light">{{ f.total_events }} logs</span></td>
+                        <td>
+                            {% if f.threat_count > 0 %}
+                            <span class="badge bg-danger bg-opacity-15 text-danger border border-danger border-opacity-25 px-2 py-1">
+                                <i class="bi bi-shield-fill-x me-1"></i> {{ f.threat_count }} Threats
+                            </span>
+                            {% else %}
+                            <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 px-2 py-1">
+                                <i class="bi bi-shield-fill-check me-1"></i> 0 Threats
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('main.analyzer_session', file_id=f.id) }}" class="btn btn-outline-primary btn-sm px-3">
+                                    <i class="bi bi-search"></i> Inspect Details
+                                </a>
+                                <a href="{{ url_for('main.export_analyzer_session', file_id=f.id) }}" class="btn btn-outline-success btn-sm px-2">
+                                    <i class="bi bi-download"></i> CSV
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-secondary">No analyzed log files registered. Upload a file above to begin.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const progressContainer = document.getElementById('progress-container');
+    const uploadStatus = document.getElementById('upload-status-text');
+    const uploadPercent = document.getElementById('upload-percent');
+    const uploadBar = document.getElementById('upload-bar');
+
+    // Drag-over styling
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, e => {
+            e.preventDefault();
+            dropZone.classList.add('border-primary', 'bg-secondary', 'bg-opacity-10');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, e => {
+            e.preventDefault();
+            dropZone.classList.remove('border-primary', 'bg-secondary', 'bg-opacity-10');
+        }, false);
+    });
+
+    // Drop handler
+    dropZone.addEventListener('drop', e => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0) {
+            handleFileUpload(files[0]);
+        }
+    });
+
+    // File browse selector
+    fileInput.addEventListener('change', function () {
+        if (fileInput.files.length > 0) {
+            handleFileUpload(fileInput.files[0]);
+        }
+    });
+
+    function handleFileUpload(file) {
+        // Validate extension
+        const allowedExts = ['.log', '.txt', '.csv'];
+        const nameLower = file.name.lowerCase ? file.name.lowerCase() : file.name.toLowerCase();
+        const valid = allowedExts.some(ext => nameLower.endsWith(ext));
+        if (!valid) {
+            alert("File upload error: Only .log, .txt, or .csv formats are supported.");
+            return;
+        }
+
+        // Validate size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert("File upload error: Maximum file size limit is 5MB.");
+            return;
+        }
+
+        // Display progress bar
+        progressContainer.classList.remove('d-none');
+        uploadStatus.innerText = "Ingesting and parsing log frames...";
+        updateProgress(0);
+
+        const formData = new FormData();
+        formData.append('logfile', file);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', "{{ url_for('main.analyzer_upload') }}", true);
+
+        // Upload progress listener
+        xhr.upload.addEventListener('progress', e => {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 90); // cap upload part to 90%
+                updateProgress(percent);
+            }
+        });
+
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                updateProgress(100);
+                uploadStatus.innerText = "Ingestion succeeded. Redirecting to review dashboard...";
+                
+                const response = JSON.parse(xhr.responseText);
+                setTimeout(() => {
+                    window.location.href = "{{ url_for('main.analyzer_session', file_id=0) }}".replace('/0', '/' + response.file_id);
+                }, 800);
+            } else {
+                progressContainer.classList.add('d-none');
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    alert("Analysis Failed: " + response.error);
+                } catch(e) {
+                    alert("Analysis Failed: Internal engine error.");
+                }
+            }
+        };
+
+        xhr.onerror = function () {
+            progressContainer.classList.add('d-none');
+            alert("Connection error occurred during log upload.");
+        };
+
+        xhr.send(formData);
+    }
+
+    function updateProgress(percent) {
+        uploadPercent.innerText = percent + "%";
+        uploadBar.style.width = percent + "%";
+    }
+});
+</script>
+{% endblock %}

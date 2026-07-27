@@ -6,7 +6,9 @@ from flask_login import login_required, current_user
 from models.db import db
 from models.scan import NetworkScan, PortResult, DNSResult
 from models.monitor import MonitoringSession, CapturedPacket
+from models.analyzer import LogFile, LogEvent
 from services.monitor_service import sniffer_manager
+from services.log_parser import parse_log_content
 from services.scanner_utils import (
     is_valid_ipv4,
     is_valid_domain,
@@ -44,6 +46,12 @@ def dashboard():
     other_count = CapturedPacket.query.filter(~CapturedPacket.protocol.in_(['TCP', 'UDP', 'ICMP', 'ARP'])).count()
     protocol_data = [tcp_count, udp_count, icmp_count, arp_count, other_count]
 
+    # Phase 5 Log Analyzer Metrics
+    total_logs_analysed = LogFile.query.count()
+    critical_events_count = LogEvent.query.filter_by(severity='Critical').count()
+    recent_log_upload = LogFile.query.order_by(LogFile.upload_time.desc()).first()
+    recent_logs = LogFile.query.order_by(LogFile.upload_time.desc()).limit(5).all()
+
     return render_template(
         'dashboard.html',
         user=current_user,
@@ -52,7 +60,11 @@ def dashboard():
         recent_scans=recent_scans,
         packets_captured=packets_captured,
         last_session=last_session,
-        protocol_data=protocol_data
+        protocol_data=protocol_data,
+        total_logs_analysed=total_logs_analysed,
+        critical_events_count=critical_events_count,
+        recent_log_upload=recent_log_upload,
+        recent_logs=recent_logs
     )
 
 @main_bp.route('/scanner')
@@ -378,11 +390,192 @@ def export_monitor_session(session_id):
 @main_bp.route('/analyzer')
 @login_required
 def analyzer():
+    files = LogFile.query.filter_by(user_id=current_user.id).order_by(LogFile.upload_time.desc()).all()
+    return render_template('analyzer.html', files=files)
+
+@main_bp.route('/analyzer/upload', methods=['POST'])
+@login_required
+def analyzer_upload():
+    if 'logfile' not in request.files:
+        return jsonify({"success": False, "error": "No log file part in the request."}), 400
+        
+    file = request.files['logfile']
+    if file.filename == '':
+        return jsonify({"success": False, "error": "No file selected."}), 400
+        
+    # Check extension
+    allowed_exts = {'.log', '.txt', '.csv'}
+    filename_lower = file.filename.lower()
+    if not any(filename_lower.endswith(ext) for ext in allowed_exts):
+        return jsonify({"success": False, "error": "Unsupported file format. Please upload .log, .txt, or .csv files."}), 400
+        
+    # Check size (max 5MB)
+    try:
+        file.seek(0, 2)
+        file_size = file.tell()
+        file.seek(0)
+        if file_size > 5 * 1024 * 1024:
+            return jsonify({"success": False, "error": "File size exceeds 5MB limit."}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Failed to check file specifications: {str(e)}"}), 400
+
+    # Ingest content
+    try:
+        content = file.read().decode('utf-8', errors='ignore')
+    except Exception as e:
+        return jsonify({"success": False, "error": f"File decoding failure: {str(e)}"}), 400
+        
+    # Parse logs
+    try:
+        events = parse_log_content(content, file.filename)
+        if not events:
+            return jsonify({"success": False, "error": "No logs could be parsed from the file."}), 400
+            
+        total_events = len(events)
+        threat_count = sum(1 for e in events if e["is_threat"])
+        
+        # Save LogFile meta record
+        logfile_record = LogFile(
+            user_id=current_user.id,
+            filename=file.filename,
+            total_events=total_events,
+            threat_count=threat_count
+        )
+        db.session.add(logfile_record)
+        db.session.flush() # Yields logfile_record.id
+        
+        # Save each LogEvent
+        for e in events:
+            evt = LogEvent(
+                logfile_id=logfile_record.id,
+                timestamp=e["timestamp"],
+                source=e["source"],
+                event_type=e["event_type"],
+                severity=e["severity"],
+                message=e["message"],
+                is_threat=e["is_threat"]
+            )
+            db.session.add(evt)
+            
+        db.session.commit()
+        return jsonify({"success": True, "file_id": logfile_record.id})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"Failed to parse or save log data: {str(e)}"}), 500
+
+@main_bp.route('/analyzer/session/<int:file_id>')
+@login_required
+def analyzer_session(file_id):
+    logfile = db.session.get(LogFile, file_id)
+    if not logfile:
+        abort(404)
+        
+    # Query parameters for filtering
+    severity = request.args.get('severity', '').strip()
+    keyword = request.args.get('keyword', '').strip()
+    start_date_str = request.args.get('start_date', '').strip()
+    end_date_str = request.args.get('end_date', '').strip()
+    
+    query = LogEvent.query.filter_by(logfile_id=file_id)
+    
+    if severity:
+        query = query.filter_by(severity=severity)
+        
+    if keyword:
+        query = query.filter(LogEvent.message.ilike(f'%{keyword}%'))
+        
+    from datetime import datetime
+    if start_date_str:
+        try:
+            start_dt = datetime.strptime(start_date_str, '%Y-%m-%d')
+            query = query.filter(LogEvent.timestamp >= start_dt)
+        except ValueError:
+            pass
+            
+    if end_date_str:
+        try:
+            end_dt = datetime.strptime(end_date_str, '%Y-%m-%d')
+            # include entire end day
+            query = query.filter(LogEvent.timestamp <= end_dt.replace(hour=23, minute=59, second=59))
+        except ValueError:
+            pass
+
+    events = query.order_by(LogEvent.timestamp.asc()).all()
+    
+    # Calculate stats for the current filtered/unfiltered list
+    # Let's calculate base stats for the entire file (unfiltered) to show overall file statistics
+    total_count = LogEvent.query.filter_by(logfile_id=file_id).count()
+    threat_count = LogEvent.query.filter_by(logfile_id=file_id, is_threat=True).count()
+    
+    # Severity counts
+    critical_count = LogEvent.query.filter_by(logfile_id=file_id, severity='Critical').count()
+    high_count = LogEvent.query.filter_by(logfile_id=file_id, severity='High').count()
+    medium_count = LogEvent.query.filter_by(logfile_id=file_id, severity='Medium').count()
+    low_count = LogEvent.query.filter_by(logfile_id=file_id, severity='Low').count()
+    
+    # Timeline daily aggregation (max 10 days) for Chart.js
+    from sqlalchemy import func
+    daily_stats = db.session.query(
+        func.date(LogEvent.timestamp).label('day'), func.count(LogEvent.id).label('cnt')
+    ).filter_by(logfile_id=file_id).group_by(func.date(LogEvent.timestamp)).order_by(func.date(LogEvent.timestamp).asc()).limit(10).all()
+    
+    daily_labels = [str(row.day) for row in daily_stats]
+    daily_counts = [row.cnt for row in daily_stats]
+    
+    # Event types counts (top 5)
+    type_stats = db.session.query(
+        LogEvent.event_type, func.count(LogEvent.id).label('cnt')
+    ).filter_by(logfile_id=file_id).group_by(LogEvent.event_type).order_by(func.count(LogEvent.id).desc()).limit(5).all()
+    
+    type_labels = [row.event_type for row in type_stats]
+    type_counts = [row.cnt for row in type_stats]
+
+    stats = {
+        "total": total_count,
+        "threats": threat_count,
+        "Critical": critical_count,
+        "High": high_count,
+        "Medium": medium_count,
+        "Low": low_count,
+        "daily_labels": daily_labels,
+        "daily_counts": daily_counts,
+        "type_labels": type_labels,
+        "type_counts": type_counts
+    }
+    
     return render_template(
-        'coming_soon.html',
-        module_name="Log Analyzer",
-        description="Aggregate, parse, and review raw system syslog, audit log, and application logs using regex patterns.",
-        status="Coming Soon"
+        'analyzer_detail.html',
+        logfile=logfile,
+        events=events,
+        stats=stats,
+        filters={
+            "severity": severity,
+            "keyword": keyword,
+            "start_date": start_date_str,
+            "end_date": end_date_str
+        }
+    )
+
+@main_bp.route('/analyzer/export/<int:file_id>')
+@login_required
+def export_analyzer_session(file_id):
+    logfile = db.session.get(LogFile, file_id)
+    if not logfile:
+        abort(404)
+        
+    events = LogEvent.query.filter_by(logfile_id=file_id).order_by(LogEvent.timestamp.asc()).all()
+    
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['Event ID', 'Timestamp', 'Source', 'Event Type', 'Severity', 'Message', 'Is Threat'])
+    for e in events:
+        cw.writerow([e.id, e.timestamp.strftime('%Y-%m-%d %H:%M:%S'), e.source, e.event_type, e.severity, e.message, 'Yes' if e.is_threat else 'No'])
+        
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename=parsed_events_{file_id}.csv"}
     )
 
 @main_bp.route('/vault')

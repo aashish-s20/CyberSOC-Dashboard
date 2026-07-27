@@ -16,10 +16,10 @@
         </div>
     </div>
 
-    <!-- 6 Metric Cards Grid -->
+    <!-- 8 Metric Cards Grid -->
     <div class="row g-4 mb-4">
         <!-- 1. Application Status -->
-        <div class="col-12 col-md-6 col-xl-4">
+        <div class="col-12 col-md-6 col-xl-3">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <span class="text-secondary small fw-semibold">Application Status</span>
@@ -31,57 +31,55 @@
         </div>
 
         <!-- 2. Current User -->
-        <div class="col-12 col-md-6 col-xl-4">
+        <div class="col-12 col-md-6 col-xl-3">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Current User</span>
+                    <span class="text-secondary small fw-semibold">Analyst Session</span>
                     <i class="bi bi-person-circle text-info fs-5"></i>
                 </div>
                 <h3 class="h4 fw-bold text-white mb-2">{{ user.username }}</h3>
-                <p class="text-muted small mb-0">ID: {{ user.id }} | Role: {{ user.role }}</p>
+                <p class="text-muted small mb-0">Role: {{ user.role }}</p>
             </div>
         </div>
 
-        <!-- 3. Current Role -->
-        <div class="col-12 col-md-6 col-xl-4">
+        <!-- 3. Total Logs Analysed -->
+        <div class="col-12 col-md-6 col-xl-3">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Current Role</span>
-                    <i class="bi bi-shield-lock-fill text-warning fs-5"></i>
+                    <span class="text-secondary small fw-semibold">Logs Analysed</span>
+                    <i class="bi bi-file-earmark-text text-warning fs-5"></i>
                 </div>
-                <h3 class="h4 fw-bold text-white mb-2">
-                    <span class="badge bg-primary bg-opacity-25 border border-primary border-opacity-50 text-primary px-3 py-1 fs-6">{{ user.role }}</span>
-                </h3>
-                <p class="text-muted small mb-0">SOC privilege level: Administrative</p>
+                <h3 class="h4 fw-bold text-white mb-2">{{ total_logs_analysed }}</h3>
+                <p class="text-muted small mb-0">Log files ingested</p>
             </div>
         </div>
 
-        <!-- 4. Packets Captured -->
-        <div class="col-12 col-md-6 col-xl-4">
+        <!-- 4. Critical Events -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Critical Events</span>
+                    <i class="bi bi-shield-fill-exclamation text-danger fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-danger mb-2">{{ critical_events_count }}</h3>
+                <p class="text-muted small mb-0">Threat log signatures flagged</p>
+            </div>
+        </div>
+
+        <!-- 5. Packets Captured -->
+        <div class="col-12 col-md-6 col-xl-3">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <span class="text-secondary small fw-semibold">Packets Captured</span>
                     <i class="bi bi-activity text-primary fs-5"></i>
                 </div>
                 <h3 class="h4 fw-bold text-white mb-2">{{ packets_captured }}</h3>
-                <p class="text-muted small mb-0">Total traces recorded on adapters</p>
-            </div>
-        </div>
-
-        <!-- 5. Total Scans -->
-        <div class="col-12 col-md-6 col-xl-4">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Total Scans</span>
-                    <i class="bi bi-shield-shaded text-info fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2">{{ total_scans }}</h3>
-                <p class="text-muted small mb-0">Last Scan: {{ last_scan.timestamp.strftime('%Y-%m-%d %H:%M:%S') if last_scan else 'N/A' }}</p>
+                <p class="text-muted small mb-0">Total traces recorded</p>
             </div>
         </div>
 
         <!-- 6. Last Monitor Session -->
-        <div class="col-12 col-md-6 col-xl-4">
+        <div class="col-12 col-md-6 col-xl-3">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <span class="text-secondary small fw-semibold">Last Monitor Session</span>
@@ -99,6 +97,38 @@
                 </p>
             </div>
         </div>
+
+        <!-- 7. Total Scans -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Total Scans</span>
+                    <i class="bi bi-shield-shaded text-info fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2">{{ total_scans }}</h3>
+                <p class="text-muted small mb-0">Last: {{ last_scan.timestamp.strftime('%Y-%m-%d %H:%M') if last_scan else 'N/A' }}</p>
+            </div>
+        </div>
+
+        <!-- 8. Last Scan Target -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Last Scan Target</span>
+                    <i class="bi bi-target fs-5 text-secondary"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.15rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                    {{ last_scan.target if last_scan else 'None' }}
+                </h3>
+                <p class="text-muted small mb-0">
+                    {% if last_scan %}
+                        Type: {{ last_scan.scan_type }}
+                    {% else %}
+                        No audits completed yet
+                    {% endif %}
+                </p>
+            </div>
+        </div>
     </div>
 
     <!-- Quick Actions Panel -->
@@ -112,8 +142,8 @@
                 </a>
             </div>
             <div class="col-12 col-sm-6 col-lg-3">
-                <a href="{{ url_for('main.reports') }}" class="btn btn-outline-primary w-100 py-3 text-start d-flex align-items-center justify-content-between">
-                    <span><i class="bi bi-bar-chart me-2"></i> View Reports</span>
+                <a href="{{ url_for('main.analyzer') }}" class="btn btn-outline-primary w-100 py-3 text-start d-flex align-items-center justify-content-between">
+                    <span><i class="bi bi-file-earmark-text me-2"></i> Open Log Analyzer</span>
                     <i class="bi bi-chevron-right text-muted"></i>
                 </a>
             </div>
@@ -176,49 +206,100 @@
         </div>
     </div>
 
-    <!-- Recent Scans Stream -->
-    <div class="card bg-dark-card p-4 border border-white border-opacity-5 rounded-4">
-        <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
-            <div>
-                <h3 class="h5 fw-bold text-white mb-1"><i class="bi bi-clock-history text-primary me-2"></i>Recent Scans Activity</h3>
-                <p class="text-muted small mb-0">Auditable network scanner events logged in this session</p>
+    <!-- Split Activity Feeds -->
+    <div class="row g-4">
+        <!-- 1. Recent Scans -->
+        <div class="col-12 col-xl-6">
+            <div class="card bg-dark-card p-4 border border-white border-opacity-5 rounded-4 h-100">
+                <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+                    <div>
+                        <h3 class="h5 fw-bold text-white mb-1"><i class="bi bi-clock-history text-primary me-2"></i>Recent Scanner Audits</h3>
+                        <p class="text-muted small mb-0">Auditable network scanner events logged</p>
+                    </div>
+                    <a href="{{ url_for('main.scanner') }}" class="btn btn-outline-primary btn-sm px-3">Go to Scanner</a>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                        <thead>
+                            <tr class="border-bottom border-white border-opacity-10 text-muted">
+                                <th>Scan Type</th>
+                                <th>Target</th>
+                                <th>Timestamp</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in recent_scans %}
+                            <tr class="border-bottom border-white border-opacity-5">
+                                <td><span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-20">{{ s.scan_type }}</span></td>
+                                <td class="text-light fw-medium">{{ s.target }}</td>
+                                <td class="text-secondary">{{ s.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    <a href="{{ url_for('main.scan_detail', scan_id=s.id) }}" class="btn btn-outline-primary btn-sm px-2">
+                                        <i class="bi bi-eye-fill"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-secondary">No recent scans detected.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <a href="{{ url_for('main.scanner') }}" class="btn btn-outline-primary btn-sm px-3">Go to Scanner</a>
         </div>
-        
-        <div class="table-responsive">
-            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
-                <thead>
-                    <tr class="border-bottom border-white border-opacity-10 text-muted">
-                        <th>Scan ID</th>
-                        <th>Scan Type</th>
-                        <th>Target</th>
-                        <th>User</th>
-                        <th>Timestamp (UTC)</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for s in recent_scans %}
-                    <tr class="border-bottom border-white border-opacity-5">
-                        <td class="text-muted fw-bold">#{{ s.id }}</td>
-                        <td><span class="badge bg-primary bg-opacity-15 text-primary border border-primary border-opacity-30">{{ s.scan_type }}</span></td>
-                        <td class="text-light fw-medium">{{ s.target }}</td>
-                        <td class="text-secondary fw-semibold">{{ s.user.username }}</td>
-                        <td class="text-secondary">{{ s.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                        <td>
-                            <a href="{{ url_for('main.scan_detail', scan_id=s.id) }}" class="btn btn-outline-primary btn-sm px-2">
-                                <i class="bi bi-eye-fill"></i> View Details
-                            </a>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center py-4 text-secondary">No recent scans detected. Click "Open Scanner" to run a security audit.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+        <!-- 2. Recent Log Ingestions -->
+        <div class="col-12 col-xl-6">
+            <div class="card bg-dark-card p-4 border border-white border-opacity-5 rounded-4 h-100">
+                <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+                    <div>
+                        <h3 class="h5 fw-bold text-white mb-1"><i class="bi bi-file-earmark-bar-graph text-primary me-2"></i>Recent Log Uploads</h3>
+                        <p class="text-muted small mb-0">Insecure trace signatures analysed</p>
+                    </div>
+                    <a href="{{ url_for('main.analyzer') }}" class="btn btn-outline-primary btn-sm px-3">Go to Analyzer</a>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                        <thead>
+                            <tr class="border-bottom border-white border-opacity-10 text-muted">
+                                <th>Filename</th>
+                                <th>Total Events</th>
+                                <th>Threats Count</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in recent_logs %}
+                            <tr class="border-bottom border-white border-opacity-5">
+                                <td class="text-light fw-medium text-truncate" style="max-width: 150px;">{{ f.filename }}</td>
+                                <td><span class="badge bg-secondary bg-opacity-25 text-light">{{ f.total_events }}</span></td>
+                                <td>
+                                    {% if f.threat_count > 0 %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20">{{ f.threat_count }} Threats</span>
+                                    {% else %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20">0 Threats</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('main.analyzer_session', file_id=f.id) }}" class="btn btn-outline-primary btn-sm px-2">
+                                        <i class="bi bi-search"></i> Inspect
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-secondary">No log analyses completed yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>

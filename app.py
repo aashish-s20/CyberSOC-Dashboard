@@ -6,6 +6,7 @@ from models.db import db
 from models.user import User
 from models.scan import NetworkScan, PortResult, DNSResult
 from models.monitor import MonitoringSession, CapturedPacket
+from models.analyzer import LogFile, LogEvent
 from routes.auth import auth_bp
 from routes.main import main_bp
 from routes.errors import errors_bp

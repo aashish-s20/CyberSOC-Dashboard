@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+
+{% block title %}Log Audit - {{ logfile.filename }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 animate-fade-in">
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-shield-fill-exclamation text-primary me-2"></i>Log Analysis Ingestion</h1>
+            <p class="text-secondary mb-0">Parsed trace logs audit for file: <strong class="text-light">{{ logfile.filename }}</strong></p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('main.export_analyzer_session', file_id=logfile.id) }}" class="btn btn-outline-success px-4 py-2">
+                <i class="bi bi-download me-2"></i> Export Parsed CSV
+            </a>
+            <a href="{{ url_for('main.analyzer') }}" class="btn btn-outline-primary px-4 py-2">
+                <i class="bi bi-arrow-left me-2"></i> Back to Analyzer
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+                <span class="text-secondary small fw-semibold d-block mb-2">Total Events Ingested</span>
+                <h3 class="h2 fw-bold text-white mb-0">{{ stats.total }}</h3>
+                <small class="text-muted">Total records parsed</small>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+                <span class="text-secondary small fw-semibold d-block mb-2">Threat Signatures Identified</span>
+                <h3 class="h2 fw-bold text-danger mb-0">
+                    <i class="bi bi-shield-fill-x me-1"></i> {{ stats.threats }}
+                </h3>
+                <small class="text-muted">Requiring immediate audit</small>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+                <span class="text-secondary small fw-semibold d-block mb-2">Critical Severity Logs</span>
+                <h3 class="h2 fw-bold text-warning mb-0">{{ stats.Critical }}</h3>
+                <small class="text-muted">System-wide critical events</small>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+                <span class="text-secondary small fw-semibold d-block mb-2">High Severity Logs</span>
+                <h3 class="h2 fw-bold text-info mb-0">{{ stats.High }}</h3>
+                <small class="text-muted">High-priority indicators</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3 Chart.js Visualizations Grid -->
+    <div class="row g-4 mb-4">
+        <!-- 1. Severity Distribution (Doughnut) -->
+        <div class="col-12 col-md-4">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100">
+                <h3 class="h6 fw-bold text-white mb-3">Severity Breakdown</h3>
+                <div class="chart-container" style="position: relative; height: 180px; width: 100%;">
+                    <canvas id="severityDoughnutChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Event Type Distribution (Pie) -->
+        <div class="col-12 col-md-4">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100">
+                <h3 class="h6 fw-bold text-white mb-3">Top Event Categories</h3>
+                <div class="chart-container" style="position: relative; height: 180px; width: 100%;">
+                    <canvas id="typePieChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Daily Events Volume (Bar) -->
+        <div class="col-12 col-md-4">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100">
+                <h3 class="h6 fw-bold text-white mb-3">Chronological Event Volume</h3>
+                <div class="chart-container" style="position: relative; height: 180px; width: 100%;">
+                    <canvas id="timelineBarChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search panel -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 mb-4">
+        <h3 class="h5 fw-bold text-white mb-3">Filters & Query Parameters</h3>
+        <form method="GET" action="{{ url_for('main.analyzer_session', file_id=logfile.id) }}">
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label text-secondary small fw-medium">Message Contains Keyword</label>
+                    <input type="text" class="form-control text-light" name="keyword" placeholder="e.g. Failed login, SQLi, root..." value="{{ filters.keyword }}">
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label text-secondary small fw-medium">Severity Level</label>
+                    <select class="form-select text-light" name="severity">
+                        <option value="">All Severities</option>
+                        <option value="Critical" {% if filters.severity == 'Critical' %}selected{% endif %}>Critical</option>
+                        <option value="High" {% if filters.severity == 'High' %}selected{% endif %}>High</option>
+                        <option value="Medium" {% if filters.severity == 'Medium' %}selected{% endif %}>Medium</option>
+                        <option value="Low" {% if filters.severity == 'Low' %}selected{% endif %}>Low</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label text-secondary small fw-medium">Date Range (UTC)</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="date" class="form-control text-light" name="start_date" value="{{ filters.start_date }}">
+                        <span class="text-secondary small">to</span>
+                        <input type="date" class="form-control text-light" name="end_date" value="{{ filters.end_date }}">
+                    </div>
+                </div>
+                <div class="col-12 col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100 py-2">
+                        <i class="bi bi-funnel"></i> Apply Filter
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Timeline Event Logs Table -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
+        <h3 class="h5 fw-bold text-white mb-3">Event Logs Trace Timeline</h3>
+        <div class="table-responsive" style="max-height: 500px;">
+            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="border-bottom border-white border-opacity-10 text-muted">
+                        <th>Timestamp (UTC)</th>
+                        <th>Source</th>
+                        <th>Event Category</th>
+                        <th>Severity</th>
+                        <th>Message Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in events %}
+                    <tr class="border-bottom border-white border-opacity-5 {% if e.is_threat %}bg-danger bg-opacity-5{% endif %}">
+                        <td class="text-secondary font-monospace">{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td class="text-light fw-medium">{{ e.source or 'System' }}</td>
+                        <td>
+                            {% if e.is_threat %}
+                            <span class="text-danger fw-bold"><i class="bi bi-shield-fill-x me-1"></i> {{ e.event_type }}</span>
+                            {% else %}
+                            <span class="text-secondary">{{ e.event_type }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge 
+                                {% if e.severity == 'Critical' %}bg-danger bg-opacity-20 text-danger border border-danger border-opacity-35
+                                {% elif e.severity == 'High' %}bg-warning bg-opacity-15 text-warning border border-warning border-opacity-35
+                                {% elif e.severity == 'Medium' %}bg-info bg-opacity-15 text-info border border-info border-opacity-35
+                                {% else %}bg-secondary bg-opacity-25 text-light{% endif %} px-2 py-1">
+                                {{ e.severity }}
+                            </span>
+                        </td>
+                        <td class="text-light text-wrap font-monospace" style="max-width: 400px; word-break: break-all;">
+                            {{ e.message }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-secondary">No log events match the applied filter queries.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // 1. Severity Doughnut
+    const severityCtx = document.getElementById('severityDoughnutChart').getContext('2d');
+    new Chart(severityCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Critical', 'High', 'Medium', 'Low'],
+            datasets: [{
+                data: [{{ stats.Critical }}, {{ stats.High }}, {{ stats.Medium }}, {{ stats.Low }}],
+                backgroundColor: ['#ef4444', '#f59e0b', '#06b6d4', '#6b7280'],
+                borderColor: '#121826',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: { color: '#9ca3af', font: { family: 'Inter', size: 10 } }
+                }
+            }
+        }
+    });
+
+    // 2. Event Type Distribution (Pie)
+    const typeLabels = {{ stats.type_labels | tojson }};
+    const typeCounts = {{ stats.type_counts | tojson }};
+    const typeCtx = document.getElementById('typePieChart').getContext('2d');
+    new Chart(typeCtx, {
+        type: 'pie',
+        data: {
+            labels: typeLabels.length > 0 ? typeLabels : ['No events'],
+            datasets: [{
+                data: typeCounts.length > 0 ? typeCounts : [0],
+                backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#06b6d4', '#ef4444'],
+                borderColor: '#121826',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: { 
+                        color: '#9ca3af', 
+                        font: { family: 'Inter', size: 9 },
+                        boxWidth: 12
+                    }
+                }
+            }
+        }
+    });
+
+    // 3. Chronological Daily count (Bar)
+    const dailyLabels = {{ stats.daily_labels | tojson }};
+    const dailyCounts = {{ stats.daily_counts | tojson }};
+    const timelineCtx = document.getElementById('timelineBarChart').getContext('2d');
+    new Chart(timelineCtx, {
+        type: 'bar',
+        data: {
+            labels: dailyLabels.length > 0 ? dailyLabels : ['No data'],
+            datasets: [{
+                label: 'Event Volume',
+                data: dailyCounts.length > 0 ? dailyCounts : [0],
+                backgroundColor: '#3b82f6',
+                borderColor: '#3b82f6',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#9ca3af', font: { family: 'Inter', size: 9 } }
+                },
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#9ca3af', font: { family: 'Inter', size: 9 }, stepSize: 1 }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
