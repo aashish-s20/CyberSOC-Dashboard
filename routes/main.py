@@ -5,6 +5,8 @@ from flask import Blueprint, render_template, redirect, url_for, request, jsonif
 from flask_login import login_required, current_user
 from models.db import db
 from models.scan import NetworkScan, PortResult, DNSResult
+from models.monitor import MonitoringSession, CapturedPacket
+from services.monitor_service import sniffer_manager
 from services.scanner_utils import (
     is_valid_ipv4,
     is_valid_domain,
@@ -30,12 +32,27 @@ def dashboard():
     total_scans = NetworkScan.query.count()
     last_scan = NetworkScan.query.order_by(NetworkScan.timestamp.desc()).first()
     recent_scans = NetworkScan.query.order_by(NetworkScan.timestamp.desc()).limit(5).all()
+
+    # Phase 4 Monitor Metrics
+    packets_captured = CapturedPacket.query.count()
+    last_session = MonitoringSession.query.order_by(MonitoringSession.start_time.desc()).first()
+    
+    tcp_count = CapturedPacket.query.filter_by(protocol='TCP').count()
+    udp_count = CapturedPacket.query.filter_by(protocol='UDP').count()
+    icmp_count = CapturedPacket.query.filter_by(protocol='ICMP').count()
+    arp_count = CapturedPacket.query.filter_by(protocol='ARP').count()
+    other_count = CapturedPacket.query.filter(~CapturedPacket.protocol.in_(['TCP', 'UDP', 'ICMP', 'ARP'])).count()
+    protocol_data = [tcp_count, udp_count, icmp_count, arp_count, other_count]
+
     return render_template(
         'dashboard.html',
         user=current_user,
         total_scans=total_scans,
         last_scan=last_scan,
-        recent_scans=recent_scans
+        recent_scans=recent_scans,
+        packets_captured=packets_captured,
+        last_session=last_session,
+        protocol_data=protocol_data
     )
 
 @main_bp.route('/scanner')
@@ -170,11 +187,192 @@ def export_scans():
 @main_bp.route('/monitor')
 @login_required
 def monitor():
+    sessions = MonitoringSession.query.filter_by(user_id=current_user.id).order_by(MonitoringSession.start_time.desc()).all()
+    return render_template('monitor.html', sessions=sessions)
+
+@main_bp.route('/monitor/interfaces')
+@login_required
+def monitor_interfaces():
+    ifaces = sniffer_manager.get_interfaces()
+    return jsonify({"success": True, "interfaces": ifaces})
+
+@main_bp.route('/monitor/start', methods=['POST'])
+@login_required
+def monitor_start():
+    interface = request.form.get('interface', '').strip()
+    if not interface:
+        return jsonify({"success": False, "error": "Network interface selection is required."}), 400
+
+    if sniffer_manager.is_monitoring:
+        return jsonify({"success": False, "error": "A packet monitoring session is already active."}), 400
+
+    from datetime import datetime, timezone
+    try:
+        session = MonitoringSession(
+            user_id=current_user.id,
+            interface=interface,
+            start_time=datetime.now(timezone.utc)
+        )
+        db.session.add(session)
+        db.session.commit()
+
+        # Start thread
+        sniffer_manager.start_monitoring(interface, session.id)
+        return jsonify({
+            "success": True,
+            "session_id": session.id,
+            "warning": sniffer_manager.permission_warning
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"Failed to start monitoring session: {str(e)}"}), 500
+
+@main_bp.route('/monitor/stop', methods=['POST'])
+@login_required
+def monitor_stop():
+    if not sniffer_manager.is_monitoring:
+        return jsonify({"success": False, "error": "No active monitoring session found."}), 400
+
+    from datetime import datetime, timezone
+    session_id = sniffer_manager.active_session_id
+    
+    try:
+        # Stop thread
+        sniffer_manager.stop_monitoring()
+        
+        # Final drain of buffer
+        final_packets = sniffer_manager.retrieve_new_packets()
+        for p in final_packets:
+            pkt = CapturedPacket(
+                session_id=session_id,
+                timestamp=datetime.fromisoformat(p["timestamp"]),
+                source_ip=p["src"],
+                destination_ip=p["dst"],
+                protocol=p["protocol"],
+                length=p["length"]
+            )
+            db.session.add(pkt)
+        db.session.commit()
+
+        # Update session totals
+        session = db.session.get(MonitoringSession, session_id)
+        if session:
+            session.end_time = datetime.now(timezone.utc)
+            session.total_packets = CapturedPacket.query.filter_by(session_id=session_id).count()
+            db.session.commit()
+            total_pkts = session.total_packets
+            ifaces = session.interface
+        else:
+            total_pkts = 0
+            ifaces = "Unknown"
+
+        return jsonify({
+            "success": True,
+            "session_id": session_id,
+            "total_packets": total_pkts,
+            "interface": ifaces
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"Failed to gracefully close monitoring: {str(e)}"}), 500
+
+@main_bp.route('/monitor/live-data')
+@login_required
+def monitor_live_data():
+    if not sniffer_manager.is_monitoring:
+        return jsonify({"success": False, "error": "Sniffer is inactive."}), 400
+
+    from datetime import datetime, timezone
+    try:
+        new_packets = sniffer_manager.retrieve_new_packets()
+        
+        # Save to DB in real-time
+        for p in new_packets:
+            pkt = CapturedPacket(
+                session_id=sniffer_manager.active_session_id,
+                timestamp=datetime.fromisoformat(p["timestamp"]),
+                source_ip=p["src"],
+                destination_ip=p["dst"],
+                protocol=p["protocol"],
+                length=p["length"]
+            )
+            db.session.add(pkt)
+        if new_packets:
+            db.session.commit()
+            
+        return jsonify({
+            "success": True,
+            "packets": new_packets,
+            "warning": sniffer_manager.permission_warning,
+            "use_simulation": sniffer_manager.use_simulation
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"Error gathering live data feed: {str(e)}"}), 500
+
+@main_bp.route('/monitor/session/<int:session_id>')
+@login_required
+def monitor_detail(session_id):
+    session = db.session.get(MonitoringSession, session_id)
+    if not session:
+        abort(404)
+        
+    packets = CapturedPacket.query.filter_by(session_id=session_id).order_by(CapturedPacket.timestamp.asc()).all()
+    
+    # Calculate stats
+    tcp_count = CapturedPacket.query.filter_by(session_id=session_id, protocol='TCP').count()
+    udp_count = CapturedPacket.query.filter_by(session_id=session_id, protocol='UDP').count()
+    icmp_count = CapturedPacket.query.filter_by(session_id=session_id, protocol='ICMP').count()
+    arp_count = CapturedPacket.query.filter_by(session_id=session_id, protocol='ARP').count()
+    other_count = CapturedPacket.query.filter(CapturedPacket.session_id == session_id, ~CapturedPacket.protocol.in_(['TCP', 'UDP', 'ICMP', 'ARP'])).count()
+    
+    # Top talkers
+    from sqlalchemy import func
+    top_sources = db.session.query(
+        CapturedPacket.source_ip, func.count(CapturedPacket.id).label('cnt')
+    ).filter_by(session_id=session_id).group_by(CapturedPacket.source_ip).order_by(func.count(CapturedPacket.id).desc()).limit(5).all()
+    
+    top_destinations = db.session.query(
+        CapturedPacket.destination_ip, func.count(CapturedPacket.id).label('cnt')
+    ).filter_by(session_id=session_id).group_by(CapturedPacket.destination_ip).order_by(func.count(CapturedPacket.id).desc()).limit(5).all()
+
+    stats = {
+        "TCP": tcp_count,
+        "UDP": udp_count,
+        "ICMP": icmp_count,
+        "ARP": arp_count,
+        "Other": other_count
+    }
+    
     return render_template(
-        'coming_soon.html',
-        module_name="Network Monitor",
-        description="Analyze real-time traffic volume, bandwidth consumption, active protocol ratios, and network adapter statistics.",
-        status="Coming Soon"
+        'monitor_detail.html',
+        session=session,
+        packets=packets,
+        stats=stats,
+        top_sources=top_sources,
+        top_destinations=top_destinations
+    )
+
+@main_bp.route('/monitor/export/<int:session_id>')
+@login_required
+def export_monitor_session(session_id):
+    session = db.session.get(MonitoringSession, session_id)
+    if not session:
+        abort(404)
+        
+    packets = CapturedPacket.query.filter_by(session_id=session_id).order_by(CapturedPacket.timestamp.asc()).all()
+    
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['Packet ID', 'Timestamp', 'Source IP', 'Destination IP', 'Protocol', 'Length (Bytes)'])
+    for p in packets:
+        cw.writerow([p.id, p.timestamp.strftime('%Y-%m-%d %H:%M:%S'), p.source_ip, p.destination_ip, p.protocol, p.length])
+        
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename=session_packets_{session_id}.csv"}
     )
 
 @main_bp.route('/analyzer')

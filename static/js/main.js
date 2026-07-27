@@ -132,18 +132,43 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // 4. Threat Distribution (Radar) Chart
+    // 4. Threat Distribution (Radar / Protocol Distribution) Chart
     const threatDistributionCtx = document.getElementById('threatDistributionChart');
     if (threatDistributionCtx) {
+        const dataHolder = document.getElementById('protocol-data-holder');
+        let chartData = [65, 59, 90, 81, 56];
+        let labels = ['Malware', 'Phishing', 'Intrusion', 'Brute Force', 'DDoS'];
+        let type = 'radar';
+        let bgColors = 'rgba(59, 130, 246, 0.15)';
+        let borderColors = chartColors.blue;
+        let showLegend = false;
+
+        if (dataHolder) {
+            try {
+                const rawData = JSON.parse(dataHolder.getAttribute('data-protocol-data') || '[]');
+                const hasPackets = rawData.some(val => val > 0);
+                if (hasPackets) {
+                    chartData = rawData;
+                    labels = ['TCP', 'UDP', 'ICMP', 'ARP', 'Other'];
+                    type = 'doughnut';
+                    bgColors = ['#10b981', '#06b6d4', '#f59e0b', '#ef4444', '#6b7280'];
+                    borderColors = '#121826';
+                    showLegend = true;
+                }
+            } catch (e) {
+                console.error("Failed to parse protocol distribution data:", e);
+            }
+        }
+
         new Chart(threatDistributionCtx, {
-            type: 'radar',
+            type: type,
             data: {
-                labels: ['Malware', 'Phishing', 'Intrusion', 'Brute Force', 'DDoS'],
+                labels: labels,
                 datasets: [{
-                    label: 'Threat Vector Severity',
-                    data: [65, 59, 90, 81, 56],
-                    borderColor: chartColors.blue,
-                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                    label: type === 'doughnut' ? 'Packets' : 'Threat Vector Severity',
+                    data: chartData,
+                    borderColor: borderColors,
+                    backgroundColor: bgColors,
                     borderWidth: 2,
                     pointBackgroundColor: chartColors.cyan,
                     pointBorderColor: '#fff'
@@ -153,9 +178,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false }
+                    legend: {
+                        display: showLegend,
+                        position: 'right',
+                        labels: {
+                            color: chartColors.text,
+                            font: { family: 'Inter', size: 10 }
+                        }
+                    }
                 },
-                scales: {
+                scales: type === 'radar' ? {
                     r: {
                         angleLines: { color: 'rgba(255, 255, 255, 0.08)' },
                         grid: { color: 'rgba(255, 255, 255, 0.08)' },
@@ -169,7 +201,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             font: { family: 'Inter', size: 8 }
                         }
                     }
-                }
+                } : {}
             }
         });
     }

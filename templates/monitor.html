@@ -1,0 +1,596 @@
+{% extends 'base.html' %}
+
+{% block title %}Network Monitor Console - CyberSOC{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 animate-fade-in">
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-broadcast text-primary me-2"></i>Network Monitor</h1>
+            <p class="text-secondary mb-0">Real-time packet surveillance & protocol analysis console</p>
+        </div>
+        <div id="live-indicator-badge" class="d-none">
+            <span class="badge bg-danger bg-opacity-15 border border-danger border-opacity-35 text-danger px-3 py-2 fw-semibold animate-pulse">
+                <span class="status-indicator danger me-2"></span> CAPTURING LIVE NETWORK TRAFFIC
+            </span>
+        </div>
+    </div>
+
+    <!-- Interface Selector & Sniffer Controls Card -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 mb-4">
+        <h3 class="h5 fw-bold text-white mb-3">Monitoring Controls</h3>
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-6 col-lg-5">
+                <label class="form-label text-secondary small fw-medium">Network Interface Card (NIC)</label>
+                <select class="form-select text-light" id="interface-select" required>
+                    <option value="" disabled selected>Loading available adapters...</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-6 col-lg-4 d-flex gap-3">
+                <button type="button" class="btn btn-primary px-4 py-3 flex-grow-1" id="start-btn" disabled>
+                    <i class="bi bi-play-fill me-2"></i> Start Sniffing
+                </button>
+                <button type="button" class="btn btn-danger px-4 py-3 flex-grow-1" id="stop-btn" disabled>
+                    <i class="bi bi-stop-fill me-2"></i> Stop Sniffing
+                </button>
+            </div>
+            <div class="col-12 col-lg-3 text-lg-end" id="mode-status-container">
+                <!-- Mode Status (Simulated or Real) filled by JS -->
+            </div>
+        </div>
+        
+        <!-- Privilege warning -->
+        <div class="alert alert-warning border-warning border-opacity-20 bg-warning bg-opacity-5 text-warning rounded-3 mt-3 d-none" id="privilege-warning-box">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                <div class="small">
+                    <strong>Administrative Privileges Required</strong>: Npcap/WinPcap driver or root privileges missing. 
+                    The monitor has fallen back to <strong>Simulated surveillance mode</strong> to demonstrate traffic graphs.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Stats Grid -->
+    <div class="row g-4 mb-4">
+        <!-- Live Counters Card -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100">
+                <h3 class="h6 fw-bold text-white mb-4">Live Packet Counts</h3>
+                <div class="d-flex flex-column gap-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="text-secondary small">Total Captured</span>
+                        <span class="text-light fw-bold fs-5" id="cnt-total">0</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between border-top border-white border-opacity-5 pt-2">
+                        <span class="text-secondary small"><span class="status-indicator success me-1"></span> TCP Packets</span>
+                        <span class="text-success fw-bold" id="cnt-tcp">0</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between border-top border-white border-opacity-5 pt-2">
+                        <span class="text-secondary small"><span class="status-indicator info me-1"></span> UDP Packets</span>
+                        <span class="text-info fw-bold" id="cnt-udp">0</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between border-top border-white border-opacity-5 pt-2">
+                        <span class="text-secondary small"><span class="status-indicator warning me-1"></span> ICMP Packets</span>
+                        <span class="text-warning fw-bold" id="cnt-icmp">0</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between border-top border-white border-opacity-5 pt-2">
+                        <span class="text-secondary small"><span class="status-indicator danger me-1"></span> ARP Packets</span>
+                        <span class="text-danger fw-bold" id="cnt-arp">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Chart Card -->
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100">
+                <h3 class="h6 fw-bold text-white mb-3">Protocol Distribution</h3>
+                <div class="chart-container" style="position: relative; height: 160px; width: 100%;">
+                    <canvas id="liveProtocolChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Talkers Card -->
+        <div class="col-12 col-xl-5">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100">
+                <h3 class="h6 fw-bold text-white mb-3">Top Talkers (IP Addresses)</h3>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <small class="text-muted d-block mb-2">Top Sources</small>
+                        <div class="table-responsive">
+                            <table class="table table-dark table-borderless small mb-0 table-sm">
+                                <tbody id="top-sources-tbody">
+                                    <tr><td class="text-secondary text-center py-3">No data</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted d-block mb-2">Top Destinations</small>
+                        <div class="table-responsive">
+                            <table class="table table-dark table-borderless small mb-0 table-sm">
+                                <tbody id="top-dests-tbody">
+                                    <tr><td class="text-secondary text-center py-3">No data</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Packet Stream Table -->
+    <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+            <div>
+                <h3 class="h5 fw-bold text-white mb-1">Live Packet Stream</h3>
+                <p class="text-secondary small mb-0">Tabular interface showing incoming data frames</p>
+            </div>
+            
+            <!-- Protocol Filters -->
+            <div class="d-flex align-items-center gap-2" id="filter-container">
+                <span class="text-secondary small me-2">Filters:</span>
+                <div class="btn-group" role="group">
+                    <input type="checkbox" class="btn-check" id="filter-tcp" checked autocomplete="off">
+                    <label class="btn btn-outline-primary btn-sm px-3" for="filter-tcp">TCP</label>
+                    
+                    <input type="checkbox" class="btn-check" id="filter-udp" checked autocomplete="off">
+                    <label class="btn btn-outline-primary btn-sm px-3" for="filter-udp">UDP</label>
+                    
+                    <input type="checkbox" class="btn-check" id="filter-icmp" checked autocomplete="off">
+                    <label class="btn btn-outline-primary btn-sm px-3" for="filter-icmp">ICMP</label>
+                    
+                    <input type="checkbox" class="btn-check" id="filter-arp" checked autocomplete="off">
+                    <label class="btn btn-outline-primary btn-sm px-3" for="filter-arp">ARP</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive" style="max-height: 400px;">
+            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="border-bottom border-white border-opacity-10 text-muted">
+                        <th>Timestamp</th>
+                        <th>Source IP</th>
+                        <th>Destination IP</th>
+                        <th>Protocol</th>
+                        <th>Length (Bytes)</th>
+                    </tr>
+                </thead>
+                <tbody id="packet-stream-tbody">
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-secondary">
+                            <i class="bi bi-activity display-6 d-block mb-2 text-muted"></i>
+                            Waiting for packet capture thread to start...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- History list -->
+    <div class="card bg-dark-card p-4 border border-white border-opacity-5 rounded-4">
+        <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-clock-history text-primary me-2"></i>Monitoring History Log</h3>
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless table-hover align-middle small mb-0">
+                <thead>
+                    <tr class="border-bottom border-white border-opacity-10 text-muted">
+                        <th>Session ID</th>
+                        <th>Interface</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Total Packets</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="sessions-history-tbody">
+                    {% for s in sessions %}
+                    <tr class="border-bottom border-white border-opacity-5">
+                        <td class="text-muted fw-bold">#{{ s.id }}</td>
+                        <td class="text-light fw-medium">{{ s.interface }}</td>
+                        <td class="text-secondary">{{ s.start_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td class="text-secondary">{{ s.end_time.strftime('%Y-%m-%d %H:%M:%S') if s.end_time else 'Active' }}</td>
+                        <td><span class="badge bg-secondary bg-opacity-25 text-light">{{ s.total_packets }} pkts</span></td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('main.monitor_detail', session_id=s.id) }}" class="btn btn-outline-primary btn-sm px-3">
+                                    <i class="bi bi-eye-fill"></i> View Details
+                                </a>
+                                <a href="{{ url_for('main.export_monitor_session', session_id=s.id) }}" class="btn btn-outline-success btn-sm px-2">
+                                    <i class="bi bi-download"></i> CSV
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-secondary">No previous monitoring sessions registered.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const interfaceSelect = document.getElementById('interface-select');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const liveIndicator = document.getElementById('live-indicator-badge');
+    const privilegeWarning = document.getElementById('privilege-warning-box');
+    const modeStatus = document.getElementById('mode-status-container');
+    const streamTbody = document.getElementById('packet-stream-tbody');
+    const historyTbody = document.getElementById('sessions-history-tbody');
+
+    // Counters
+    const cntTotal = document.getElementById('cnt-total');
+    const cntTcp = document.getElementById('cnt-tcp');
+    const cntUdp = document.getElementById('cnt-udp');
+    const cntIcmp = document.getElementById('cnt-icmp');
+    const cntArp = document.getElementById('cnt-arp');
+
+    // Table elements
+    const topSourcesTbody = document.getElementById('top-sources-tbody');
+    const topDestsTbody = document.getElementById('top-dests-tbody');
+
+    // State
+    let activeSessionId = null;
+    let pollInterval = null;
+    let totalCount = 0;
+    
+    // Stats variables
+    let tcpCount = 0;
+    let udpCount = 0;
+    let icmpCount = 0;
+    let arpCount = 0;
+    let otherCount = 0;
+
+    // Source / Dest tracker objects
+    let sourceTalkers = {};
+    let destTalkers = {};
+
+    // Filters checkbox DOMs
+    const filterTcp = document.getElementById('filter-tcp');
+    const filterUdp = document.getElementById('filter-udp');
+    const filterIcmp = document.getElementById('filter-icmp');
+    const filterArp = document.getElementById('filter-arp');
+
+    // Filter checkbox listeners to show/hide rows dynamically
+    [filterTcp, filterUdp, filterIcmp, filterArp].forEach(cb => {
+        cb.addEventListener('change', filterTableRows);
+    });
+
+    // 1. Initialize Chart.js doughnut
+    const ctx = document.getElementById('liveProtocolChart').getContext('2d');
+    const protocolChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['TCP', 'UDP', 'ICMP', 'ARP', 'Other'],
+            datasets: [{
+                data: [0, 0, 0, 0, 0],
+                backgroundColor: ['#10b981', '#06b6d4', '#f59e0b', '#ef4444', '#6b7280'],
+                borderColor: '#121826',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: { color: '#9ca3af', font: { family: 'Inter', size: 10 } }
+                }
+            }
+        }
+    });
+
+    // 2. Fetch available adapters on load
+    fetch("{{ url_for('main.monitor_interfaces') }}")
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.interfaces.length > 0) {
+                interfaceSelect.innerHTML = '';
+                data.interfaces.forEach(iface => {
+                    const option = document.createElement('option');
+                    option.value = iface;
+                    option.innerText = iface;
+                    interfaceSelect.appendChild(option);
+                });
+                startBtn.disabled = false;
+            } else {
+                interfaceSelect.innerHTML = '<option value="">No adapters found</option>';
+            }
+        })
+        .catch(err => {
+            interfaceSelect.innerHTML = '<option value="">Error loading adapters</option>';
+            console.error(err);
+        });
+
+    // 3. Start monitoring click handler
+    startBtn.addEventListener('click', function () {
+        const selectedIface = interfaceSelect.value;
+        if (!selectedIface) return;
+
+        const payload = new URLSearchParams();
+        payload.append('interface', selectedIface);
+
+        startBtn.disabled = true;
+        interfaceSelect.disabled = true;
+
+        fetch("{{ url_for('main.monitor_start') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: payload
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                alert("Start Error: " + data.error);
+                startBtn.disabled = false;
+                interfaceSelect.disabled = false;
+                return;
+            }
+
+            activeSessionId = data.session_id;
+            stopBtn.disabled = false;
+            liveIndicator.classList.remove('d-none');
+            
+            // Clear stats and lists
+            resetSnifferStats();
+            streamTbody.innerHTML = '';
+
+            // Handle privilege state warnings
+            if (data.warning) {
+                privilegeWarning.classList.remove('d-none');
+                modeStatus.innerHTML = '<span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-35 px-3 py-2 fw-semibold">SIMULATION MODE</span>';
+            } else {
+                privilegeWarning.classList.add('d-none');
+                modeStatus.innerHTML = '<span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-35 px-3 py-2 fw-semibold">REAL SNIFFER ACTIVE</span>';
+            }
+
+            // Start Polling data every 1 second
+            pollInterval = setInterval(fetchLivePacketFeed, 1000);
+        })
+        .catch(err => {
+            alert("Connection error starting packet capture.");
+            startBtn.disabled = false;
+            interfaceSelect.disabled = false;
+            console.error(err);
+        });
+    });
+
+    // 4. Stop monitoring click handler
+    stopBtn.addEventListener('click', function () {
+        if (!activeSessionId) return;
+
+        stopBtn.disabled = true;
+        clearInterval(pollInterval);
+
+        fetch("{{ url_for('main.monitor_stop') }}", { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                alert("Stop Error: " + data.error);
+                stopBtn.disabled = false;
+                return;
+            }
+
+            // Reset control states
+            startBtn.disabled = false;
+            interfaceSelect.disabled = false;
+            liveIndicator.classList.add('d-none');
+            modeStatus.innerHTML = '';
+            privilegeWarning.classList.add('d-none');
+
+            // Add new session record to history table dynamically
+            prependSessionRow(data.session_id, data.interface, data.total_packets);
+            activeSessionId = null;
+        })
+        .catch(err => {
+            alert("Connection error stopping packet capture.");
+            stopBtn.disabled = false;
+            console.error(err);
+        });
+    });
+
+    // 5. Polling endpoint fetcher
+    function fetchLivePacketFeed() {
+        fetch("{{ url_for('main.monitor_live_data') }}")
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.packets.length > 0) {
+                    processIncomingPackets(data.packets);
+                }
+            })
+            .catch(err => {
+                console.error("Polling error: ", err);
+            });
+    }
+
+    function processIncomingPackets(packets) {
+        packets.forEach(p => {
+            totalCount++;
+            
+            // Protocol counter updates
+            if (p.protocol === 'TCP') tcpCount++;
+            else if (p.protocol === 'UDP') udpCount++;
+            else if (p.protocol === 'ICMP') icmpCount++;
+            else if (p.protocol === 'ARP') arpCount++;
+            else otherCount++;
+
+            // Top talker updates
+            sourceTalkers[p.src] = (sourceTalkers[p.src] || 0) + 1;
+            destTalkers[p.dst] = (destTalkers[p.dst] || 0) + 1;
+
+            // Append row to HTML
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-proto', p.protocol);
+            tr.className = "border-bottom border-white border-opacity-5 animate-fade-in";
+            
+            // Determine filter visibility
+            const isChecked = getFilterState(p.protocol);
+            if (!isChecked) {
+                tr.classList.add('d-none');
+            }
+
+            const timeStr = p.timestamp.substring(11, 19);
+
+            tr.innerHTML = `
+                <td class="text-muted font-monospace">${timeStr}</td>
+                <td class="text-light fw-medium">${p.src}</td>
+                <td class="text-light fw-medium">${p.dst}</td>
+                <td><span class="badge ${getProtocolBadgeClass(p.protocol)}">${p.protocol}</span></td>
+                <td class="text-secondary font-monospace">${p.length} B</td>
+            `;
+
+            if (streamTbody.children.length === 1 && streamTbody.children[0].querySelector('td[colspan="5"]')) {
+                streamTbody.innerHTML = '';
+            }
+
+            streamTbody.insertBefore(tr, streamTbody.firstChild);
+            
+            // Cap table rows inside the GUI view to 100 to prevent browser slowdowns
+            if (streamTbody.children.length > 100) {
+                streamTbody.removeChild(streamTbody.lastChild);
+            }
+        });
+
+        // Update live counters
+        cntTotal.innerText = totalCount;
+        cntTcp.innerText = tcpCount;
+        cntUdp.innerText = udpCount;
+        cntIcmp.innerText = icmpCount;
+        cntArp.innerText = arpCount;
+
+        // Update Chart
+        protocolChart.data.datasets[0].data = [tcpCount, udpCount, icmpCount, arpCount, otherCount];
+        protocolChart.update();
+
+        // Update top talker tables
+        updateTalkerTable(topSourcesTbody, sourceTalkers);
+        updateTalkerTable(topDestsTbody, destTalkers);
+    }
+
+    function resetSnifferStats() {
+        totalCount = 0;
+        tcpCount = 0;
+        udpCount = 0;
+        icmpCount = 0;
+        arpCount = 0;
+        otherCount = 0;
+        sourceTalkers = {};
+        destTalkers = {};
+        
+        cntTotal.innerText = "0";
+        cntTcp.innerText = "0";
+        cntUdp.innerText = "0";
+        cntIcmp.innerText = "0";
+        cntArp.innerText = "0";
+
+        topSourcesTbody.innerHTML = '<tr><td class="text-secondary text-center py-3">No data</td></tr>';
+        topDestsTbody.innerHTML = '<tr><td class="text-secondary text-center py-3">No data</td></tr>';
+
+        protocolChart.data.datasets[0].data = [0, 0, 0, 0, 0];
+        protocolChart.update();
+    }
+
+    function getFilterState(proto) {
+        if (proto === 'TCP') return filterTcp.checked;
+        if (proto === 'UDP') return filterUdp.checked;
+        if (proto === 'ICMP') return filterIcmp.checked;
+        if (proto === 'ARP') return filterArp.checked;
+        return true; // Display other types by default
+    }
+
+    function filterTableRows() {
+        const rows = streamTbody.querySelectorAll('tr');
+        rows.forEach(row => {
+            const proto = row.getAttribute('data-proto');
+            if (proto) {
+                const isChecked = getFilterState(proto);
+                if (isChecked) {
+                    row.classList.remove('d-none');
+                } else {
+                    row.classList.add('d-none');
+                }
+            }
+        });
+    }
+
+    function updateTalkerTable(tbody, talkersObj) {
+        // Sort talkers
+        const sorted = Object.entries(talkersObj)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+
+        if (sorted.length === 0) {
+            tbody.innerHTML = '<tr><td class="text-secondary text-center py-3">No data</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        sorted.forEach(entry => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="text-light fw-medium">${entry[0]}</td>
+                <td class="text-primary fw-bold text-end font-monospace">${entry[1]}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function getProtocolBadgeClass(proto) {
+        if (proto === 'TCP') return 'bg-success bg-opacity-15 text-success border border-success border-opacity-35';
+        if (proto === 'UDP') return 'bg-info bg-opacity-15 text-info border border-info border-opacity-35';
+        if (proto === 'ICMP') return 'bg-warning bg-opacity-15 text-warning border border-warning border-opacity-35';
+        if (proto === 'ARP') return 'bg-danger bg-opacity-15 text-danger border border-danger border-opacity-35';
+        return 'bg-secondary bg-opacity-25 text-light';
+    }
+
+    function prependSessionRow(id, iface, total) {
+        const tr = document.createElement('tr');
+        tr.className = "border-bottom border-white border-opacity-5 animate-fade-in";
+        
+        const now = new Date();
+        const utcStr = now.toISOString().replace('T', ' ').substring(0, 19);
+
+        let detailUrl = "{{ url_for('main.monitor_detail', session_id=0) }}".replace('/0', '/' + id);
+        let exportUrl = "{{ url_for('main.export_monitor_session', session_id=0) }}".replace('/0', '/' + id);
+
+        tr.innerHTML = `
+            <td class="text-muted fw-bold">#${id}</td>
+            <td class="text-light fw-medium">${iface}</td>
+            <td class="text-secondary">${utcStr}</td>
+            <td class="text-secondary">${utcStr}</td>
+            <td><span class="badge bg-secondary bg-opacity-25 text-light">${total} pkts</span></td>
+            <td>
+                <div class="d-flex gap-2">
+                    <a href="${detailUrl}" class="btn btn-outline-primary btn-sm px-3">
+                        <i class="bi bi-eye-fill"></i> View Details
+                    </a>
+                    <a href="${exportUrl}" class="btn btn-outline-success btn-sm px-2">
+                        <i class="bi bi-download"></i> CSV
+                    </a>
+                </div>
+            </td>
+        `;
+
+        if (historyTbody.children.length === 1 && historyTbody.children[0].querySelector('td[colspan="6"]')) {
+            historyTbody.innerHTML = '';
+        }
+
+        historyTbody.insertBefore(tr, historyTbody.firstChild);
+    }
+});
+</script>
+{% endblock %}
