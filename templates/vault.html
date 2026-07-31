@@ -134,59 +134,6 @@
         </div>
     </div>
 
-    <!-- Decrypt & Verify Modals Container -->
-    {% for f in files %}
-    <!-- Decrypt Modal -->
-    <div class="modal fade" id="decryptModal-{{ f.id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4">
-                <div class="modal-header border-bottom border-white border-opacity-5">
-                    <h5 class="modal-title fw-bold text-white"><i class="bi bi-unlock-fill text-primary me-2"></i>Decrypt Original File</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form action="{{ url_for('main.vault_decrypt', file_id=f.id) }}" method="POST">
-                    <div class="modal-body">
-                        <p class="text-secondary small">Enter the encryption passphrase key defined during ingestion for file: <strong>{{ f.filename }}</strong></p>
-                        <div class="mb-3">
-                            <label class="form-label text-secondary small fw-medium">Vault Passphrase</label>
-                            <input type="password" class="form-control" name="password" placeholder="Passphrase" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer border-top border-white border-opacity-5">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Decrypt & Download</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Verify Integrity Modal -->
-    <div class="modal fade" id="verifyModal-{{ f.id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4">
-                <div class="modal-header border-bottom border-white border-opacity-5">
-                    <h5 class="modal-title fw-bold text-white"><i class="bi bi-patch-check text-primary me-2"></i>Verify File Integrity</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form action="{{ url_for('main.vault_verify', file_id=f.id) }}" method="POST" enctype="multipart/form-data">
-                    <div class="modal-body">
-                        <p class="text-secondary small">Upload a file from your local machine to check its signature hash against the original secure vault copy of <strong>{{ f.filename }}</strong>.</p>
-                        <div class="mb-3">
-                            <label class="form-label text-secondary small fw-medium">Upload File to Verify</label>
-                            <input type="file" class="form-control" name="check_file" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer border-top border-white border-opacity-5">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-info">Verify Integrity</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-
     <!-- Integrity Audits Logs Card -->
     <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4">
         <h3 class="h5 fw-bold text-white mb-3"><i class="bi bi-clock-history text-primary me-2"></i>Integrity Auditing Trail</h3>
@@ -232,6 +179,59 @@
         </div>
     </div>
 </div>
+
+<!-- Decrypt & Verify Modals Container -->
+{% for f in files %}
+<!-- Decrypt Modal -->
+<div class="modal fade" id="decryptModal-{{ f.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4 shadow-lg">
+            <div class="modal-header border-bottom border-white border-opacity-5">
+                <h5 class="modal-title fw-bold text-white"><i class="bi bi-unlock-fill text-primary me-2"></i>Decrypt Original File</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('main.vault_decrypt', file_id=f.id) }}" method="POST">
+                <div class="modal-body">
+                    <p class="text-secondary small">Enter the encryption passphrase key defined during ingestion for file: <strong>{{ f.filename }}</strong></p>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Vault Passphrase</label>
+                        <input type="password" class="form-control" name="password" placeholder="Passphrase" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-white border-opacity-5">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Decrypt & Download</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Verify Integrity Modal -->
+<div class="modal fade" id="verifyModal-{{ f.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4 shadow-lg">
+            <div class="modal-header border-bottom border-white border-opacity-5">
+                <h5 class="modal-title fw-bold text-white"><i class="bi bi-patch-check text-primary me-2"></i>Verify File Integrity</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('main.vault_verify', file_id=f.id) }}" method="POST" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <p class="text-secondary small">Upload a file from your local machine to check its signature hash against the original secure vault copy of <strong>{{ f.filename }}</strong>.</p>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Upload File to Verify</label>
+                        <input type="file" class="form-control" name="check_file" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-white border-opacity-5">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-info">Verify Integrity</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
 {% endblock %}
 
 {% block extra_js %}

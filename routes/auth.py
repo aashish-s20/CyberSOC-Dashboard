@@ -20,7 +20,15 @@ def login():
         if user and user.check_password(password):
             if user.status != 'Active':
                 from models.audit import AuditLog
-                log = AuditLog(user_id=user.id, action='Authentication Locked', details=f"Blocked login attempt for disabled user account: {user.username}.", ip_address=request.remote_addr)
+                log = AuditLog(
+                    username=user.username,
+                    user_role=user.role,
+                    module='Authentication',
+                    action='Authentication Locked',
+                    status='Failure',
+                    details=f"Blocked login attempt for disabled user account: {user.username}.",
+                    ip_address=request.remote_addr
+                )
                 db.session.add(log)
                 db.session.commit()
                 flash('This account is disabled. Contact system administrator.', 'error')
@@ -32,7 +40,15 @@ def login():
             
             # Log successful authentication
             from models.audit import AuditLog
-            log = AuditLog(user_id=user.id, action='Authentication Success', details=f"User {user.username} successfully logged in.", ip_address=request.remote_addr)
+            log = AuditLog(
+                username=user.username,
+                user_role=user.role,
+                module='Authentication',
+                action='Authentication Success',
+                status='Success',
+                details=f"User {user.username} successfully logged in.",
+                ip_address=request.remote_addr
+            )
             db.session.add(log)
             
             db.session.commit()
@@ -42,7 +58,15 @@ def login():
         else:
             # Log failed authentication
             from models.audit import AuditLog
-            log = AuditLog(user_id=None, action='Authentication Failure', details=f"Failed login attempt for username: {username}.", ip_address=request.remote_addr)
+            log = AuditLog(
+                username=username,
+                user_role='Unknown',
+                module='Authentication',
+                action='Authentication Failure',
+                status='Failure',
+                details=f"Failed login attempt for username: {username}.",
+                ip_address=request.remote_addr
+            )
             db.session.add(log)
             db.session.commit()
             flash('Invalid username or password.', 'error')
@@ -86,7 +110,15 @@ def register():
         
         # Log self-registration
         from models.audit import AuditLog
-        log = AuditLog(user_id=new_user.id, action='User Self-Registration', details=f"New user {new_user.username} registered with role: {new_user.role}.", ip_address=request.remote_addr)
+        log = AuditLog(
+            username=new_user.username,
+            user_role=new_user.role,
+            module='Authentication',
+            action='User Self-Registration',
+            status='Success',
+            details=f"New user {new_user.username} registered with role: {new_user.role}.",
+            ip_address=request.remote_addr
+        )
         db.session.add(log)
         
         db.session.commit()
@@ -101,7 +133,15 @@ def register():
 def logout():
     # Log logout event
     from models.audit import AuditLog
-    log = AuditLog(user_id=current_user.id, action='Authentication Logout', details=f"User {current_user.username} logged out.", ip_address=request.remote_addr)
+    log = AuditLog(
+        username=current_user.username,
+        user_role=current_user.role,
+        module='Authentication',
+        action='Authentication Logout',
+        status='Success',
+        details=f"User {current_user.username} logged out.",
+        ip_address=request.remote_addr
+    )
     db.session.add(log)
     db.session.commit()
     

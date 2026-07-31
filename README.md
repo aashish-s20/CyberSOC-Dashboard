@@ -1,105 +1,285 @@
-# CyberSOC Dashboard
+# 🛡️ CyberSOC Dashboard
 
-CyberSOC Dashboard is an educational cybersecurity and networking platform that integrates multiple security administration tools into a unified console interface. This project is developed in stages and is intended for learning and portfolio purposes.
-
-## Phase 1 Overview
-
-Phase 1 establishes the core skeleton, routing blueprints, user database schemas, custom dark-theme styling, and responsive layout structure.
-
-### Key Features
-- **Role-Based Authentication**: Registration, secure hashed passwords, login session tracking, and automatic routing controls.
-- **Default Seed User**: Pre-seeded user for easy initialization and portfolio review.
-- **Enterprise Dark UI**: CSS variable-driven dark theme with custom responsive navbar, retractable sidebar, and clean typography.
-- **Simulated Metrics Engine**: Chart.js lines representing real-time network threats.
-- **Robust Error Handlers**: Custom styled error templates for 403, 404, and 500 status codes.
+Enterprise-grade Security Operations Center (SOC) dashboard built using Flask and Python. The platform provides network monitoring, threat intelligence, incident management, secure file management, audit logging, and role-based access control.
 
 ---
 
-## Tech Stack
+## 👨‍💻 Author
 
-- **Backend**: Python 3, Flask, Flask-SQLAlchemy, Flask-Login
-- **Frontend**: HTML5, CSS3, Bootstrap 5, JavaScript, Chart.js, Bootstrap Icons
-- **Database**: SQLite3
+### Aashish S
+
+Cybersecurity Engineer | SOC Analyst | Network Security Enthusiast
+
+Computer Science Engineering student passionate about cybersecurity, networking, threat detection, and security operations. This project demonstrates practical skills in security monitoring, incident response, and enterprise-grade access control.
 
 ---
 
-## Folder Structure
+# 🚀 Features
+
+## 🔐 Authentication & RBAC
+
+- Secure authentication
+- Role-Based Access Control (RBAC)
+- Administrator
+- SOC Manager
+- Security Engineer
+- SOC Analyst
+
+---
+
+## 🌐 Network Scanner
+
+- Host scanning
+- Port scanning
+- DNS lookup
+- WHOIS lookup
+- SSL certificate analysis
+- Password strength checker
+- Scan history
+- CSV export
+
+---
+
+## 📡 Network Monitor
+
+- Real-time traffic monitoring
+- Packet analysis
+- Protocol statistics
+- Session history
+- Network interface selection
+- CSV export
+
+---
+
+## 📄 Log Analyzer
+
+- Log file upload
+- Threat detection
+- Severity classification
+- Event timeline
+- Search and filtering
+- CSV export
+
+---
+
+## 🔒 SecureVault
+
+- File encryption
+- File decryption
+- SHA-256 hash generation
+- Integrity verification
+- Secure file management
+- Vault history
+
+---
+
+## 🌍 Threat Intelligence
+
+- IOC lookup
+- Domain analysis
+- URL analysis
+- IP reputation analysis
+- Hash analysis
+- Threat history
+
+---
+
+## 🚨 Alert Center
+
+- Alert management
+- Severity classification
+- Search and filtering
+- Alert acknowledgement
+
+---
+
+## 📋 Incident Management
+
+- Incident creation
+- Incident assignment
+- Investigation notes
+- Incident timeline
+- Status tracking
+
+---
+
+## 📑 Audit Logs
+
+- User activity logging
+- Login history
+- Role changes
+- System events
+- Search and export
+
+---
+
+## 📊 Reports
+
+- CSV export
+- PDF export
+- Analytics
+- Dashboard metrics
+
+---
+
+# 🛠️ Technology Stack
+
+### Backend
+
+- Python
+- Flask
+- SQLite
+
+### Frontend
+
+- HTML5
+- CSS3
+- JavaScript
+- Bootstrap
+- Chart.js
+
+### Security
+
+- Role-Based Access Control
+- SHA-256
+- AES Encryption
+- Session Management
+
+---
+
+# 📂 Project Structure
 
 ```text
 CyberSOC-Dashboard/
+
 ├── app.py
-├── config.py
 ├── requirements.txt
-├── .gitignore
 ├── README.md
-├── database/            # Stores SQLite database files
-├── models/              # SQLAlchemy model definitions
-│   ├── db.py
-│   └── user.py
-├── routes/              # Flask Blueprints
-│   ├── auth.py
-│   ├── main.py
-│   └── errors.py
-├── static/              # Asset files (CSS, JS, Icons)
+├── LICENSE
+├── .gitignore
+
+├── static/
 │   ├── css/
-│   │   └── style.css
-│   └── js/
-│       └── main.js
-├── templates/           # HTML templates
-│   ├── errors/
-│   │   ├── 403.html
-│   │   ├── 404.html
-│   │   └── 500.html
-│   ├── base.html
-│   ├── landing.html
-│   ├── login.html
-│   ├── register.html
-│   └── dashboard.html
-├── services/            # Extensible logic directories
-├── uploads/             # Stores files uploaded by tools
-├── reports/             # Generated security reports
-└── logs/                # Application logs
+│   ├── js/
+│   ├── images/
+│   └── screenshots/
+
+├── templates/
+
+├── routes/
+
+├── models/
+
+├── database/
+
+├── utils/
+
+└── docs/
 ```
 
 ---
 
-## Default User Account
+# ⚙️ Installation
 
-To ease manual verification and immediate review, the database is automatically seeded on the first startup with the following user:
+## Clone Repository
 
-- **Username**: `manager`
-- **Password**: `Manager@123`
-- **Role**: `SOC Manager`
-
----
-
-## Quick Start & Installation
-
-Follow these steps to run the application locally:
-
-### 1. Prerequisites
-Ensure you have **Python 3** installed on your system.
-
-### 2. Setup Virtual Environment (Recommended)
 ```bash
-# Create a virtual environment
-python -m venv .venv
+git clone https://github.com/aashish-s20/CyberSOC-Dashboard.git
 
-# Activate virtual environment
-# On Windows:
-.venv\Scripts\activate
-# On Linux/macOS:
-source .venv/bin/activate
+cd CyberSOC-Dashboard
 ```
 
-### 3. Install Dependencies
+## Create Virtual Environment
+
+```bash
+python -m venv venv
+```
+
+### Windows
+
+```bash
+venv\Scripts\activate
+```
+
+### Linux / macOS
+
+```bash
+source venv/bin/activate
+```
+
+## Install Dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Run the Application
+## Run Application
+
 ```bash
 python app.py
 ```
 
-Access the dashboard at `http://127.0.0.1:5000`.
+---
+
+# 📸 Screenshots
+
+Add screenshots inside:
+
+```text
+static/screenshots/
+```
+
+Suggested screenshots:
+
+- Login Page
+- Dashboard
+- Network Scanner
+- Network Monitor
+- Log Analyzer
+- SecureVault
+- Threat Intelligence
+- Alerts
+- Incidents
+- User Management
+- Audit Logs
+
+---
+
+# 🔐 User Roles
+
+| Role | Access |
+|-------|--------|
+| Administrator | Full Access |
+| SOC Manager | Operational Management |
+| Security Engineer | Technical Operations |
+| SOC Analyst | Monitoring & Investigation |
+
+---
+
+# 🎯 Future Enhancements
+
+- Machine Learning Threat Detection
+- SIEM Integration
+- Docker Deployment
+- Kubernetes Support
+- Cloud Deployment
+- API Integration
+- Email Notifications
+
+---
+
+# 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome.
+
+---
+
+# 📜 License
+
+This project is licensed under the MIT License.
+
+---
+
+# ⭐ Support
+
+If you like this project, please give it a star.

@@ -13,19 +13,27 @@
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="theme-{{ session.get('theme_pref', 'default') if session is mapping else 'default' }}">
 
     <!-- Alert Toast Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             <div class="alert-container">
                 {% for category, message in messages %}
-                    <div class="alert alert-custom alert-dismissible fade show border-opacity-50 {% if category == 'error' %}border-danger text-danger{% else %}border-primary text-primary{% endif %}" role="alert">
+                    <div class="alert alert-custom alert-dismissible fade show border-opacity-50 
+                        {% if category == 'error' or category == 'danger' %}border-danger text-danger bg-danger bg-opacity-10
+                        {% elif category == 'success' %}border-success text-success bg-success bg-opacity-10
+                        {% elif category == 'warning' %}border-warning text-warning bg-warning bg-opacity-10
+                        {% else %}border-info text-info bg-info bg-opacity-10{% endif %}" role="alert">
                         <div class="d-flex align-items-center">
-                            {% if category == 'error' %}
-                                <i class="bi bi-exclamation-octagon-fill me-2 fs-5"></i>
+                            {% if category == 'error' or category == 'danger' %}
+                                <i class="bi bi-exclamation-octagon-fill me-2 fs-5 text-danger"></i>
+                            {% elif category == 'success' %}
+                                <i class="bi bi-check-circle-fill me-2 fs-5 text-success"></i>
+                            {% elif category == 'warning' %}
+                                <i class="bi bi-exclamation-triangle-fill me-2 fs-5 text-warning"></i>
                             {% else %}
-                                <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+                                <i class="bi bi-info-circle-fill me-2 fs-5 text-info"></i>
                             {% endif %}
                             <div>{{ message }}</div>
                         </div>
@@ -38,6 +46,8 @@
 
     <div id="wrapper">
         {% if current_user.is_authenticated %}
+        <!-- Sidebar Overlay for mobile -->
+        <div id="sidebarOverlay" class="sidebar-overlay"></div>
         <!-- Sidebar -->
         <nav id="sidebar" class="animate-fade-in">
             <div class="sidebar-header">
@@ -139,17 +149,59 @@
             <!-- Navbar -->
             <nav class="navbar navbar-expand-lg soc-navbar navbar-dark">
                 <div class="container-fluid p-0">
-                    <button type="button" id="sidebarCollapse" class="btn">
+                    <button type="button" id="sidebarCollapse" class="btn me-2">
                         <i class="bi bi-list"></i>
                     </button>
                     
-                    <div class="ms-auto d-flex align-items-center">
-                        <div class="text-end me-3 d-none d-sm-block">
-                            <small class="text-muted d-block">Logged in as</small>
-                            <span class="text-light fw-medium">{{ current_user.username }}</span>
+                    <!-- Mobile/Collapsed Brand -->
+                    <div class="d-flex align-items-center me-3 d-lg-none">
+                        <i class="bi bi-shield-lock-fill text-primary fs-4 me-2"></i>
+                        <span class="fs-5 fw-bold text-light brand-font">CyberSOC</span>
+                    </div>
+                    
+                    <form action="{{ url_for('main.global_search') }}" method="GET" class="d-none d-md-flex ms-2 me-auto" style="max-width: 300px; width: 100%;">
+                        <div class="input-group input-group-sm">
+                            <input type="text" name="q" class="form-control text-light bg-dark border-white border-opacity-10" placeholder="Global Search..." required>
+                            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search"></i></button>
                         </div>
-                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white font-weight-bold" style="width: 40px; height: 40px;">
-                            <span class="fw-bold">{{ current_user.username[0] | upper }}</span>
+                    </form>
+                    
+                    <div class="ms-auto d-flex align-items-center">
+                        <!-- Notifications Bell -->
+                        <div class="position-relative me-4 text-secondary hover-accent-cyan cursor-pointer" style="font-size: 1.15rem; line-height: 1;">
+                            <a href="{{ url_for('main.alerts') }}" class="text-secondary position-relative d-inline-block" title="Alert Center">
+                                <i class="bi bi-bell"></i>
+                                <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-dark rounded-circle" style="width: 8px; height: 8px;"></span>
+                            </a>
+                        </div>
+                        
+                        <!-- Profile Menu Dropdown -->
+                        <div class="dropdown">
+                            <button class="btn btn-link text-decoration-none dropdown-toggle p-0 d-flex align-items-center text-light" type="button" id="profileDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <div class="text-end me-2 d-none d-sm-block">
+                                    <span class="text-light fw-medium d-block" style="font-size: 0.9rem; line-height: 1.2;">{{ current_user.username }}</span>
+                                    <small class="text-secondary" style="font-size: 0.75rem;">{{ current_user.role }}</small>
+                                </div>
+                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white font-weight-bold" style="width: 38px; height: 38px; border: 2px solid rgba(255,255,255,0.15);">
+                                    <span class="fw-bold">{{ current_user.username[0] | upper }}</span>
+                                </div>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end bg-dark-card border border-white border-opacity-10 shadow-lg mt-2 animate-fade-in" aria-labelledby="profileDropdown">
+                                <li>
+                                    <div class="dropdown-header text-muted border-bottom border-white border-opacity-5 pb-2 mb-1">
+                                        <span class="d-block text-white fw-semibold">{{ current_user.username }}</span>
+                                        <small class="text-secondary">{{ current_user.email }}</small>
+                                    </div>
+                                </li>
+                                {% if current_user.role in ['Administrator', 'Security Engineer'] %}
+                                <li><a class="dropdown-item text-secondary py-2" href="{{ url_for('main.settings') }}"><i class="bi bi-gear-fill me-2"></i> Settings</a></li>
+                                {% endif %}
+                                {% if current_user.role == 'Administrator' %}
+                                <li><a class="dropdown-item text-secondary py-2" href="{{ url_for('main.admin_dashboard') }}"><i class="bi bi-shield-lock-fill me-2"></i> Admin Panel</a></li>
+                                {% endif %}
+                                <li><hr class="dropdown-divider border-white border-opacity-5 my-1"></li>
+                                <li><a class="dropdown-item text-danger py-2" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right-fill me-2"></i> Logout</a></li>
+                            </ul>
                         </div>
                     </div>
                 </div>

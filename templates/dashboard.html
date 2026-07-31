@@ -17,56 +17,106 @@
     </div>
 
     <div class="row g-4 mb-4">
-        <!-- 1. Application Status -->
-        <div class="col-12 col-md-6 col-xl-3">
+        <!-- 1. Security Score -->
+        <div class="col-12 col-md-6 col-xl-3 animate-fade-in">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Application Status</span>
-                    <span class="status-indicator success"></span>
+                    <span class="text-secondary small fw-semibold">Security Score</span>
+                    <i class="bi bi-shield-check {% if security_score >= 85 %}text-success{% elif security_score >= 70 %}text-warning{% else %}text-danger{% endif %} fs-5"></i>
                 </div>
-                <h3 class="h4 fw-bold text-white mb-2">Active</h3>
-                <p class="text-muted small mb-0" id="system-health-telemetry">CPU: 12% | RAM: 43%</p>
+                <h3 class="h4 fw-bold {% if security_score >= 85 %}text-success{% elif security_score >= 70 %}text-warning{% else %}text-danger{% endif %} mb-2 font-monospace">{{ security_score }}%</h3>
+                <p class="text-muted small mb-0">
+                    {% if security_score >= 85 %}Safe System State{% elif security_score >= 70 %}Guarded System State{% else %}Critical Vulnerabilities Flagged{% endif %}
+                </p>
             </div>
         </div>
 
-        <!-- 2. Current User -->
-        <div class="col-12 col-md-6 col-xl-3">
+        <!-- 2. Total Users -->
+        <div class="col-12 col-md-6 col-xl-3 animate-fade-in">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Analyst Session</span>
-                    <i class="bi bi-person-circle text-info fs-5"></i>
+                    <span class="text-secondary small fw-semibold">Total Users</span>
+                    <i class="bi bi-people-fill text-primary fs-5"></i>
                 </div>
-                <h3 class="h4 fw-bold text-white mb-2">{{ user.username }}</h3>
-                <p class="text-muted small mb-0">Role: {{ user.role }}</p>
+                <h3 class="h4 fw-bold text-white mb-2">{{ total_users }}</h3>
+                <p class="text-muted small mb-0">Provisioned accounts</p>
             </div>
         </div>
 
-        <!-- 3. Files Protected -->
-        <div class="col-12 col-md-6 col-xl-3">
+        <!-- 3. Active Users -->
+        <div class="col-12 col-md-6 col-xl-3 animate-fade-in">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Files Protected</span>
+                    <span class="text-secondary small fw-semibold">Active Users</span>
+                    <i class="bi bi-circle-fill text-success fs-6"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2">{{ active_users }}</h3>
+                <p class="text-muted small mb-0">Currently online</p>
+            </div>
+        </div>
+
+        <!-- 4. Total Scans -->
+        <div class="col-12 col-md-6 col-xl-3 animate-fade-in">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Total Scans</span>
+                    <i class="bi bi-shield-shaded text-info fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2">{{ total_scans }}</h3>
+                <p class="text-muted small mb-0">Network scans run</p>
+            </div>
+        </div>
+
+        <!-- 5. Threat Intel Searches -->
+        <div class="col-12 col-md-6 col-xl-3 animate-fade-in">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">IOC Searches</span>
+                    <i class="bi bi-globe-americas text-warning fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2">{{ total_ioc_searches }}</h3>
+                <p class="text-muted small mb-0">Threat Intel queries</p>
+            </div>
+        </div>
+
+        <!-- 6. Active Alerts -->
+        <div class="col-12 col-md-6 col-xl-3 animate-fade-in">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Active Alerts</span>
+                    <i class="bi bi-bell-fill text-danger fs-5 animate-pulse"></i>
+                </div>
+                <h3 class="h4 fw-bold text-danger mb-2">{{ active_alerts_count }}</h3>
+                <p class="text-muted small mb-0">Unresolved alert events</p>
+            </div>
+        </div>
+
+        <!-- 7. Open Incidents -->
+        <div class="col-12 col-md-6 col-xl-3 animate-fade-in">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Open Incidents</span>
+                    <i class="bi bi-exclamation-octagon-fill text-danger fs-5"></i>
+                </div>
+                <h3 class="h4 fw-bold text-white mb-2">{{ open_incidents_count }}</h3>
+                <p class="text-muted small mb-0">Pending investigations</p>
+            </div>
+        </div>
+
+        <!-- 8. Files Protected -->
+        <div class="col-12 col-md-6 col-xl-3 animate-fade-in">
+            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="text-secondary small fw-semibold">Protected Files</span>
                     <i class="bi bi-lock-fill text-success fs-5"></i>
                 </div>
                 <h3 class="h4 fw-bold text-white mb-2">{{ files_protected }}</h3>
-                <p class="text-muted small mb-0">Encrypted vault files</p>
+                <p class="text-muted small mb-0">Encrypted in SecureVault</p>
             </div>
         </div>
 
-        <!-- 4. Integrity Checks -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Integrity Checks</span>
-                    <i class="bi bi-patch-check-fill text-info fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2">{{ integrity_checks_count }}</h3>
-                <p class="text-muted small mb-0">Hash validations executed</p>
-            </div>
-        </div>
-
-        <!-- 5. Total Logs Analysed -->
-        <div class="col-12 col-md-6 col-xl-3">
+        <!-- 9. Logs Analysed -->
+        <div class="col-12 col-md-6 col-xl-3 animate-fade-in">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <span class="text-secondary small fw-semibold">Logs Analysed</span>
@@ -77,211 +127,15 @@
             </div>
         </div>
 
-        <!-- 6. Critical Events -->
-        <div class="col-12 col-md-6 col-xl-3">
+        <!-- 10. Monitoring Sessions -->
+        <div class="col-12 col-md-6 col-xl-3 animate-fade-in">
             <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
                 <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Critical Events</span>
-                    <i class="bi bi-shield-fill-exclamation text-danger fs-5"></i>
+                    <span class="text-secondary small fw-semibold">Monitoring Sessions</span>
+                    <i class="bi bi-broadcast text-info fs-5"></i>
                 </div>
-                <h3 class="h4 fw-bold text-danger mb-2">{{ critical_events_count }}</h3>
-                <p class="text-muted small mb-0">Threat log signatures flagged</p>
-            </div>
-        </div>
-
-        <!-- 7. Packets Captured -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Packets Captured</span>
-                    <i class="bi bi-activity text-primary fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2">{{ packets_captured }}</h3>
-                <p class="text-muted small mb-0">Total traces recorded</p>
-            </div>
-        </div>
-
-        <!-- 8. Last Monitor Session -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Last Monitor Session</span>
-                    <i class="bi bi-broadcast text-success fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.15rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-                    {{ last_session.interface if last_session else 'No sessions' }}
-                </h3>
-                <p class="text-muted small mb-0">
-                    {% if last_session %}
-                        Captured {{ last_session.total_packets }} packets
-                    {% else %}
-                        No network captures run yet
-                    {% endif %}
-                </p>
-            </div>
-        </div>
-
-        <!-- 9. Total Scans -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Total Scans</span>
-                    <i class="bi bi-shield-shaded text-info fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2">{{ total_scans }}</h3>
-                <p class="text-muted small mb-0">Last: {{ last_scan.timestamp.strftime('%Y-%m-%d %H:%M') if last_scan else 'N/A' }}</p>
-            </div>
-        </div>
-
-        <!-- 10. Last Scan Target -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Last Scan Target</span>
-                    <i class="bi bi-target fs-5 text-secondary"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.15rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-                    {{ last_scan.target if last_scan else 'None' }}
-                </h3>
-                <p class="text-muted small mb-0">
-                    {% if last_scan %}
-                        Type: {{ last_scan.scan_type }}
-                    {% else %}
-                        No audits completed yet
-                    {% endif %}
-                </p>
-            </div>
-        </div>
-
-        <!-- 11. Recent Log Upload -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Recent Log Upload</span>
-                    <i class="bi bi-file-earmark-bar-graph text-secondary fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.1rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="{{ recent_log_upload.filename if recent_log_upload else 'N/A' }}">
-                    {{ recent_log_upload.filename if recent_log_upload else 'N/A' }}
-                </h3>
-                <p class="text-muted small mb-0">
-                    {% if recent_log_upload %}
-                        Ingested {{ recent_log_upload.total_events }} lines
-                    {% else %}
-                        No logs analyzed yet
-                    {% endif %}
-                </p>
-            </div>
-        </div>
-
-        <!-- 12. Recent Vault Upload -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Recent Vault Ingestion</span>
-                    <i class="bi bi-file-earmark-lock text-secondary fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.1rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="{{ recent_vault_upload.filename if recent_vault_upload else 'N/A' }}">
-                    {{ recent_vault_upload.filename if recent_vault_upload else 'N/A' }}
-                </h3>
-                <p class="text-muted small mb-0">
-                    {% if recent_vault_upload %}
-                        Owner: {{ recent_vault_upload.user.username }}
-                    {% else %}
-                        No secure files stored yet
-                    {% endif %}
-                </p>
-            </div>
-        </div>
-
-        <!-- 13. Total IOC Searches -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Total IOC Searches</span>
-                    <i class="bi bi-globe-americas text-primary fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2">{{ total_ioc_searches }}</h3>
-                <p class="text-muted small mb-0">Threat intelligence queries</p>
-            </div>
-        </div>
-
-        <!-- 14. High Risk Findings -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">High Risk Threats</span>
-                    <i class="bi bi-bug-fill text-danger fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-danger mb-2">{{ high_risk_findings }}</h3>
-                <p class="text-muted small mb-0">High/Critical risk signatures</p>
-            </div>
-        </div>
-
-        <!-- 15. Recent IOC Lookup -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Recent IOC Lookup</span>
-                    <i class="bi bi-search text-info fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2" style="font-size: 1.15rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="{{ recent_ioc_lookup.ioc if recent_ioc_lookup else 'N/A' }}">
-                    {{ recent_ioc_lookup.ioc if recent_ioc_lookup else 'None' }}
-                </h3>
-                <p class="text-muted small mb-0">
-                    {% if recent_ioc_lookup %}
-                        Risk: {{ recent_ioc_lookup.risk_level }} ({{ recent_ioc_lookup.status }})
-                    {% else %}
-                        No lookups completed yet
-                    {% endif %}
-                </p>
-            </div>
-        </div>
-
-        <!-- 16. Threat Feed Status -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Threat Intel Status</span>
-                    <i class="bi bi-shield-fill-check text-success fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2">Online</h3>
-                <p class="text-muted small mb-0">Feeds synchronized</p>
-            </div>
-        </div>
-
-        <!-- 17. Active Alerts -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Active Alerts</span>
-                    <i class="bi bi-bell-fill text-warning fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2">{{ active_alerts_count }}</h3>
-                <p class="text-muted small mb-0">Active SOC alert logs</p>
-            </div>
-        </div>
-
-        <!-- 18. Open Incidents -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Open Incidents</span>
-                    <i class="bi bi-shield-fill-exclamation text-danger fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-white mb-2">{{ open_incidents_count }}</h3>
-                <p class="text-muted small mb-0">Cases under investigation</p>
-            </div>
-        </div>
-
-        <!-- 19. Critical Alerts -->
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card bg-dark-card h-100 p-4 border border-white border-opacity-5">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="text-secondary small fw-semibold">Critical Alerts</span>
-                    <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
-                </div>
-                <h3 class="h4 fw-bold text-danger mb-2">{{ critical_alerts_count }}</h3>
-                <p class="text-muted small mb-0">Critical severity alerts</p>
+                <h3 class="h4 fw-bold text-white mb-2">{{ monitoring_sessions_count }}</h3>
+                <p class="text-muted small mb-0">Packet sniffer runs</p>
             </div>
         </div>
     </div>

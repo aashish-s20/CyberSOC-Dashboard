@@ -2,10 +2,23 @@ document.addEventListener('DOMContentLoaded', function () {
     // Sidebar toggle functionality
     const sidebarCollapse = document.getElementById('sidebarCollapse');
     const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
 
     if (sidebarCollapse && sidebar) {
         sidebarCollapse.addEventListener('click', function () {
             sidebar.classList.toggle('active');
+            if (sidebarOverlay) {
+                sidebarOverlay.classList.toggle('active');
+            }
+        });
+    }
+
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', function () {
+            if (sidebar) {
+                sidebar.classList.remove('active');
+            }
+            sidebarOverlay.classList.remove('active');
         });
     }
 

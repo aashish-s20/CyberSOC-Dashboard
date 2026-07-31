@@ -18,6 +18,7 @@ from services.threat_service import lookup_threat_intel
 from services.monitor_service import sniffer_manager
 from services.log_parser import parse_log_content
 from services.vault_service import encrypt_file_data, decrypt_file_data, calculate_sha256
+from services.report_service import generate_pdf_report
 from services.scanner_utils import (
     is_valid_ipv4,
     is_valid_domain,
@@ -162,6 +163,15 @@ def dashboard():
     open_incidents_count = Incident.query.filter(Incident.status.in_(['Open', 'In Progress'])).count()
     critical_alerts_count = Alert.query.filter_by(severity='Critical').count()
     
+    # Phase 10 Production Metrics
+    total_users = User.query.count()
+    active_users = User.query.filter_by(status='Active').count()
+    monitoring_sessions_count = MonitoringSession.query.count()
+    
+    failed_checks = IntegrityCheck.query.filter_by(status='Integrity Failed').count()
+    calc_score = 100 - (open_incidents_count * 10) - (active_alerts_count * 5) - (failed_checks * 15)
+    security_score = max(calc_score, 30)
+    
     # Weekly Incident Trend Data
     from datetime import date, timedelta
     today = date.today()
@@ -197,6 +207,10 @@ def dashboard():
         active_alerts_count=active_alerts_count,
         open_incidents_count=open_incidents_count,
         critical_alerts_count=critical_alerts_count,
+        total_users=total_users,
+        active_users=active_users,
+        monitoring_sessions_count=monitoring_sessions_count,
+        security_score=security_score,
         incident_trend_labels=incident_trend_labels,
         incident_trend_data=incident_trend_data
     )
@@ -322,7 +336,7 @@ def run_scan():
             )
             db.session.add(alert)
 
-        log_audit_entry('Scanner Run', f"Ran {scan_type} scan targeting {target}.")
+        log_audit_entry('Network Scanner', 'Scanner Run', details=f"Ran {scan_type} scan targeting {target}.")
         db.session.commit()
         return jsonify({"success": True, "scan_id": new_scan.id, "results": results})
     except Exception as e:
@@ -342,12 +356,25 @@ def scan_detail(scan_id):
 @login_required
 def export_scans():
     scans = NetworkScan.query.order_by(NetworkScan.timestamp.desc()).all()
+    
+    if request.args.get('format') == 'pdf':
+        headers = ['Scan ID', 'User', 'Target', 'Scan Type', 'Timestamp']
+        rows = [[s.id, s.user.username if s.user else 'System', s.target, s.scan_type, s.timestamp.strftime('%Y-%m-%d %H:%M:%S')] for s in scans]
+        pdf_data = generate_pdf_report("Network Scans History Report", headers, rows)
+        log_audit_entry('Reports', 'Report Exported', details="Exported Network Scans report as PDF.")
+        return Response(
+            pdf_data,
+            mimetype="application/pdf",
+            headers={"Content-disposition": "attachment; filename=scan_history.pdf"}
+        )
+        
     si = StringIO()
     cw = csv.writer(si)
     cw.writerow(['Scan ID', 'User', 'Target', 'Scan Type', 'Timestamp'])
     for s in scans:
-        cw.writerow([s.id, s.user.username, s.target, s.scan_type, s.timestamp.strftime('%Y-%m-%d %H:%M:%S')])
+        cw.writerow([s.id, s.user.username if s.user else 'System', s.target, s.scan_type, s.timestamp.strftime('%Y-%m-%d %H:%M:%S')])
     output = si.getvalue()
+    log_audit_entry('Reports', 'Report Exported', details="Exported Network Scans report as CSV.")
     return Response(
         output,
         mimetype="text/csv",
@@ -388,7 +415,7 @@ def monitor_start():
 
         # Start thread
         sniffer_manager.start_monitoring(interface, session.id)
-        log_audit_entry('Monitor Capture Started', f"Started packet capture session #{session.id} on interface '{interface}'.")
+        log_audit_entry('Network Monitor', 'Monitor Capture Started', details=f"Started packet capture session #{session.id} on interface '{interface}'.")
         return jsonify({
             "success": True,
             "session_id": session.id,
@@ -450,7 +477,7 @@ def monitor_stop():
             total_pkts = 0
             ifaces = "Unknown"
 
-        log_audit_entry('Monitor Capture Stopped', f"Stopped packet capture session #{session_id}. Captured {total_pkts} packets.")
+        log_audit_entry('Network Monitor', 'Monitor Capture Stopped', details=f"Stopped packet capture session #{session_id}. Captured {total_pkts} packets.")
         return jsonify({
             "success": True,
             "session_id": session_id,
@@ -547,6 +574,17 @@ def export_monitor_session(session_id):
         
     packets = CapturedPacket.query.filter_by(session_id=session_id).order_by(CapturedPacket.timestamp.asc()).all()
     
+    if request.args.get('format') == 'pdf':
+        headers = ['Packet ID', 'Timestamp', 'Source IP', 'Destination IP', 'Protocol', 'Length']
+        rows = [[p.id, p.timestamp.strftime('%H:%M:%S'), p.source_ip or 'N/A', p.destination_ip or 'N/A', p.protocol or 'N/A', p.length] for p in packets]
+        pdf_data = generate_pdf_report(f"Network Monitor Session #{session_id} Packets", headers, rows)
+        log_audit_entry('Reports', 'Report Exported', details=f"Exported Monitor Session #{session_id} packets report as PDF.")
+        return Response(
+            pdf_data,
+            mimetype="application/pdf",
+            headers={"Content-disposition": f"attachment; filename=session_packets_{session_id}.pdf"}
+        )
+        
     si = StringIO()
     cw = csv.writer(si)
     cw.writerow(['Packet ID', 'Timestamp', 'Source IP', 'Destination IP', 'Protocol', 'Length (Bytes)'])
@@ -554,6 +592,7 @@ def export_monitor_session(session_id):
         cw.writerow([p.id, p.timestamp.strftime('%Y-%m-%d %H:%M:%S'), p.source_ip, p.destination_ip, p.protocol, p.length])
         
     output = si.getvalue()
+    log_audit_entry('Reports', 'Report Exported', details=f"Exported Monitor Session #{session_id} packets report as CSV.")
     return Response(
         output,
         mimetype="text/csv",
@@ -641,7 +680,7 @@ def analyzer_upload():
                 )
                 db.session.add(alert)
             
-        log_audit_entry('Log Ingestion', f"Ingested log file '{file.filename}' containing {total_events} events with {threat_count} threats.")
+        log_audit_entry('Log Analyzer', 'Log Ingestion', details=f"Ingested log file '{file.filename}' containing {total_events} events with {threat_count} threats.")
         db.session.commit()
         return jsonify({"success": True, "file_id": logfile_record.id})
     except Exception as e:
@@ -750,6 +789,17 @@ def export_analyzer_session(file_id):
         
     events = LogEvent.query.filter_by(logfile_id=file_id).order_by(LogEvent.timestamp.asc()).all()
     
+    if request.args.get('format') == 'pdf':
+        headers = ['Event ID', 'Timestamp', 'Source', 'Type', 'Severity', 'Message', 'Is Threat']
+        rows = [[e.id, e.timestamp.strftime('%H:%M:%S'), e.source or 'N/A', e.event_type or 'N/A', e.severity or 'N/A', e.message[:50] if e.message else '', 'Yes' if e.is_threat else 'No'] for e in events]
+        pdf_data = generate_pdf_report(f"Log Analyzer Report for {logfile.filename}", headers, rows)
+        log_audit_entry('Reports', 'Report Exported', details=f"Exported Log Analyzer report for {logfile.filename} as PDF.")
+        return Response(
+            pdf_data,
+            mimetype="application/pdf",
+            headers={"Content-disposition": f"attachment; filename=parsed_events_{file_id}.pdf"}
+        )
+        
     si = StringIO()
     cw = csv.writer(si)
     cw.writerow(['Event ID', 'Timestamp', 'Source', 'Event Type', 'Severity', 'Message', 'Is Threat'])
@@ -757,6 +807,7 @@ def export_analyzer_session(file_id):
         cw.writerow([e.id, e.timestamp.strftime('%Y-%m-%d %H:%M:%S'), e.source, e.event_type, e.severity, e.message, 'Yes' if e.is_threat else 'No'])
         
     output = si.getvalue()
+    log_audit_entry('Reports', 'Report Exported', details=f"Exported Log Analyzer report for {logfile.filename} as CSV.")
     return Response(
         output,
         mimetype="text/csv",
@@ -852,7 +903,7 @@ def vault_upload():
             password_hash=generate_password_hash(password)
         )
         db.session.add(vault_file)
-        log_audit_entry('Vault File Encryption', f"Successfully encrypted and stored file '{file.filename}' (SHA-256: {original_hash}).")
+        log_audit_entry('SecureVault', 'Vault File Encryption', details=f"Successfully encrypted and stored file '{file.filename}' (SHA-256: {original_hash}).")
         db.session.commit()
         flash(f"File '{file.filename}' encrypted and stored successfully in the SecureVault.", "success")
     except Exception as e:
@@ -899,7 +950,7 @@ def vault_decrypt(file_id):
         if decrypted_hash != vault_file.sha256_hash:
             flash("Integrity warning: Decrypted payload checksum mismatch.", "error")
             
-        log_audit_entry('Vault File Decryption', f"Successfully decrypted and downloaded file '{vault_file.filename}'.")
+        log_audit_entry('SecureVault', 'Vault File Decryption', details=f"Successfully decrypted and downloaded file '{vault_file.filename}'.")
         return send_file(
             io.BytesIO(decrypted_data),
             download_name=vault_file.filename,
@@ -971,7 +1022,7 @@ def vault_verify(file_id):
         )
         db.session.add(alert)
         
-    log_audit_entry('Vault Integrity Check', f"Performed integrity verification on file '{vault_file.filename}'. Result: {status}.")
+    log_audit_entry('SecureVault', 'Vault Integrity Check', status='Success' if is_verified else 'Failure', details=f"Performed integrity verification on file '{vault_file.filename}'. Result: {status}.")
     db.session.commit()
     
     if is_verified:
@@ -986,13 +1037,32 @@ def vault_verify(file_id):
 def vault_export_history():
     files = VaultFile.query.order_by(VaultFile.upload_time.asc()).all()
     
+    if request.args.get('format') == 'pdf':
+        headers = ['File ID', 'Filename', 'Upload Time', 'Owner', 'Status', 'SHA-256 Hash']
+        rows = [[
+            f.id,
+            f.filename,
+            f.upload_time.strftime('%Y-%m-%d %H:%M'),
+            f.user.username if f.user else 'System',
+            f.encryption_status,
+            f.sha256_hash[:16] + '...' if f.sha256_hash else 'N/A'
+        ] for f in files]
+        pdf_data = generate_pdf_report("SecureVault Stored Files Report", headers, rows)
+        log_audit_entry('Reports', 'Report Exported', details="Exported SecureVault files report as PDF.")
+        return Response(
+            pdf_data,
+            mimetype="application/pdf",
+            headers={"Content-disposition": "attachment; filename=secure_vault_history.pdf"}
+        )
+        
     si = StringIO()
     cw = csv.writer(si)
     cw.writerow(['File ID', 'Filename', 'Upload Time', 'Owner', 'Encryption Status', 'SHA-256 Hash'])
     for f in files:
-        cw.writerow([f.id, f.filename, f.upload_time.strftime('%Y-%m-%d %H:%M:%S'), f.user.username, f.encryption_status, f.sha256_hash])
+        cw.writerow([f.id, f.filename, f.upload_time.strftime('%Y-%m-%d %H:%M:%S'), f.user.username if f.user else 'System', f.encryption_status, f.sha256_hash])
         
     output = si.getvalue()
+    log_audit_entry('Reports', 'Report Exported', details="Exported SecureVault files report as CSV.")
     return Response(
         output,
         mimetype="text/csv",
@@ -1062,7 +1132,7 @@ def threat_search():
         
     try:
         result = lookup_threat_intel(query, current_user.id)
-        log_audit_entry('IOC Query', f"Queried threat intelligence for IOC '{query}'. Status: {result['status']}, Risk: {result['risk_level']}.")
+        log_audit_entry('Threat Intelligence', 'IOC Query', status='Success' if result['status'] != 'Malicious' else 'Warning', details=f"Queried threat intelligence for IOC '{query}'. Status: {result['status']}, Risk: {result['risk_level']}.")
         if result['status'] == 'Malicious':
             flash(f"Threat Flagged: IOC '{query}' is classified as Malicious ({result['category']}) with risk level: {result['risk_level']}.", "error")
             # Generate alert
@@ -1101,13 +1171,33 @@ def threat_search():
 def threat_export_history():
     history = ThreatIntelHistory.query.order_by(ThreatIntelHistory.search_time.asc()).all()
     
+    if request.args.get('format') == 'pdf':
+        headers = ['ID', 'User', 'IOC', 'Type', 'Score', 'Risk', 'Status', 'Search Time']
+        rows = [[
+            h.id,
+            h.user.username if h.user else 'System',
+            h.ioc,
+            h.ioc_type,
+            h.reputation_score,
+            h.risk_level,
+            h.status,
+            h.search_time.strftime('%Y-%m-%d %H:%M')
+        ] for h in history]
+        pdf_data = generate_pdf_report("Threat Intelligence Search History", headers, rows)
+        log_audit_entry('Reports', 'Report Exported', details="Exported Threat Intelligence lookup history as PDF.")
+        return Response(
+            pdf_data,
+            mimetype="application/pdf",
+            headers={"Content-disposition": "attachment; filename=threat_intelligence_history.pdf"}
+        )
+        
     si = StringIO()
     cw = csv.writer(si)
     cw.writerow(['History ID', 'User', 'IOC', 'IOC Type', 'Reputation Score', 'Risk Level', 'Status', 'Category', 'Search Time'])
     for h in history:
         cw.writerow([
             h.id,
-            h.user.username,
+            h.user.username if h.user else 'System',
             h.ioc,
             h.ioc_type,
             h.reputation_score,
@@ -1118,6 +1208,7 @@ def threat_export_history():
         ])
         
     output = si.getvalue()
+    log_audit_entry('Reports', 'Report Exported', details="Exported Threat Intelligence lookup history as CSV.")
     return Response(
         output,
         mimetype="text/csv",
@@ -1168,7 +1259,7 @@ def alert_acknowledge(alert_id):
     if not alert:
         abort(404)
     alert.status = 'Acknowledged'
-    log_audit_entry('Alert Modification', f"Updated alert #{alert.id} status to Acknowledged.")
+    log_audit_entry('Alerts', 'Alert Acknowledged', details=f"Updated alert #{alert.id} status to Acknowledged.")
     db.session.commit()
     flash(f"Alert #{alert.id} acknowledged successfully.", "success")
     return redirect(url_for('main.alerts'))
@@ -1180,7 +1271,7 @@ def alert_close(alert_id):
     if not alert:
         abort(404)
     alert.status = 'Closed'
-    log_audit_entry('Alert Modification', f"Updated alert #{alert.id} status to Closed.")
+    log_audit_entry('Alerts', 'Alert Closed', details=f"Updated alert #{alert.id} status to Closed.")
     db.session.commit()
     flash(f"Alert #{alert.id} closed successfully.", "success")
     return redirect(url_for('main.alerts'))
@@ -1190,6 +1281,25 @@ def alert_close(alert_id):
 def alerts_export():
     alerts_list = Alert.query.order_by(Alert.timestamp.desc()).all()
     
+    if request.args.get('format') == 'pdf':
+        headers = ['Alert ID', 'Timestamp', 'Source Module', 'Type', 'Severity', 'Description', 'Status']
+        rows = [[
+            a.id,
+            a.timestamp.strftime('%Y-%m-%d %H:%M'),
+            a.source_module,
+            a.alert_type,
+            a.severity,
+            a.description[:40] if a.description else '',
+            a.status
+        ] for a in alerts_list]
+        pdf_data = generate_pdf_report("SOC Alert Center Report", headers, rows)
+        log_audit_entry('Reports', 'Report Exported', details="Exported SOC Alerts report as PDF.")
+        return Response(
+            pdf_data,
+            mimetype="application/pdf",
+            headers={"Content-disposition": "attachment; filename=alert_history.pdf"}
+        )
+        
     si = StringIO()
     cw = csv.writer(si)
     cw.writerow(['Alert ID', 'Timestamp', 'Source Module', 'Alert Type', 'Severity', 'Description', 'Status'])
@@ -1205,6 +1315,7 @@ def alerts_export():
         ])
         
     output = si.getvalue()
+    log_audit_entry('Reports', 'Report Exported', details="Exported SOC Alerts report as CSV.")
     return Response(
         output,
         mimetype="text/csv",
@@ -1284,7 +1395,7 @@ def incident_create():
                 )
                 db.session.add(note_alert)
                 
-        log_audit_entry('Incident Creation', f"Opened incident case INC-{incident.id}: '{title}' (Priority: {priority}).")
+        log_audit_entry('Incidents', 'Incident Created', details=f"Opened incident case INC-{incident.id}: '{title}' (Priority: {priority}).")
         db.session.commit()
         flash(f"Incident #{incident.id} created successfully.", "success")
     except Exception as e:
@@ -1360,7 +1471,7 @@ def incident_update(incident_id):
                 note=note_content
             )
             db.session.add(note)
-            log_audit_entry('Incident Modification', f"Updated parameters for incident case INC-{incident.id}: " + ", ".join(changes) + ".")
+            log_audit_entry('Incidents', 'Incident Modified', details=f"Updated parameters for incident case INC-{incident.id}: " + ", ".join(changes) + ".")
             
         db.session.commit()
         flash(f"Incident #{incident.id} updated successfully.", "success")
@@ -1389,7 +1500,7 @@ def incident_add_note(incident_id):
             note=note_text
         )
         db.session.add(note)
-        log_audit_entry('Incident Investigation Note', f"Appended new investigation note to incident case INC-{incident.id}.")
+        log_audit_entry('Incidents', 'Incident Note Added', details=f"Appended new investigation note to incident case INC-{incident.id}.")
         db.session.commit()
         flash("Investigation note appended successfully.", "success")
     except Exception as e:
@@ -1403,6 +1514,25 @@ def incident_add_note(incident_id):
 def incidents_export():
     incidents_list = Incident.query.order_by(Incident.created_date.desc()).all()
     
+    if request.args.get('format') == 'pdf':
+        headers = ['ID', 'Title', 'Description', 'Priority', 'Status', 'Assignee', 'Created Date']
+        rows = [[
+            f"INC-{i.id}",
+            i.title,
+            i.description[:40] if i.description else '',
+            i.priority,
+            i.status,
+            i.assigned_user.username if i.assigned_user else 'Unassigned',
+            i.created_date.strftime('%Y-%m-%d')
+        ] for i in incidents_list]
+        pdf_data = generate_pdf_report("Incident Management Cases Report", headers, rows)
+        log_audit_entry('Reports', 'Report Exported', details="Exported Incident Tickets report as PDF.")
+        return Response(
+            pdf_data,
+            mimetype="application/pdf",
+            headers={"Content-disposition": "attachment; filename=incident_history.pdf"}
+        )
+        
     si = StringIO()
     cw = csv.writer(si)
     cw.writerow(['Incident ID', 'Title', 'Description', 'Priority', 'Status', 'Related Alert ID', 'Assigned User', 'Created Date', 'Closed Date'])
@@ -1420,6 +1550,7 @@ def incidents_export():
         ])
         
     output = si.getvalue()
+    log_audit_entry('Reports', 'Report Exported', details="Exported Incident Tickets report as CSV.")
     return Response(
         output,
         mimetype="text/csv",
@@ -1429,26 +1560,29 @@ def incidents_export():
 @main_bp.route('/reports')
 @login_required
 def reports():
-    return render_template(
-        'coming_soon.html',
-        module_name="Reports",
-        description="Generate compliance, activity, and executive SOC summary reports in PDF or JSON formats.",
-        status="Coming Soon"
-    )
+    sessions = MonitoringSession.query.order_by(MonitoringSession.start_time.desc()).all()
+    log_files = LogFile.query.order_by(LogFile.upload_time.desc()).all()
+    return render_template('reports.html', sessions=sessions, log_files=log_files)
 
 # ==========================================
 # PHASE 9 - NEW MODULES & ENDPOINTS
 # ==========================================
 
 # Helper function to write to AuditLog table
-def log_audit_entry(action, details=None):
+def log_audit_entry(module, action, status='Success', details=None):
     try:
         from models.audit import AuditLog
+        uname = current_user.username if (current_user and current_user.is_authenticated) else 'System'
+        urole = current_user.role if (current_user and current_user.is_authenticated) else 'System'
+        
         log = AuditLog(
-            user_id=current_user.id if current_user.is_authenticated else None,
+            username=uname,
+            user_role=urole,
+            module=module,
             action=action,
+            status=status,
             details=details,
-            ip_address=request.remote_addr
+            ip_address=request.remote_addr if request else '127.0.0.1'
         )
         db.session.add(log)
         db.session.commit()
@@ -1479,7 +1613,7 @@ def settings_update():
         current_user.email = email
         db.session.commit()
         
-        log_audit_entry('Profile Modification', f"Analyst updated email profile parameters to: {email}.")
+        log_audit_entry('Settings', 'Profile Modification', details=f"Analyst updated email profile parameters to: {email}.")
         flash("Profile settings updated successfully.", "success")
     except Exception as e:
         db.session.rollback()
@@ -1514,7 +1648,7 @@ def settings_password():
         current_user.set_password(new_password)
         db.session.commit()
         
-        log_audit_entry('Password Update', "User successfully updated account password credentials.")
+        log_audit_entry('Settings', 'Password Update', details="User successfully updated account password credentials.")
         flash("Password updated successfully.", "success")
     except Exception as e:
         db.session.rollback()
@@ -1528,13 +1662,19 @@ def settings_preferences():
     theme_pref = request.form.get('theme_pref', 'default')
     refresh_interval = request.form.get('refresh_interval', '10')
     email_alerts = request.form.get('email_alerts', 'off')
+    session_timeout = request.form.get('session_timeout', '30')
     
     from flask import session
     session['theme_pref'] = theme_pref
     session['refresh_interval'] = refresh_interval
     session['email_alerts'] = email_alerts
+    session['session_timeout'] = session_timeout
     
-    log_audit_entry('Preferences Modification', f"User updated application preferences: Theme={theme_pref}, Refresh={refresh_interval}s, Email Alerts={email_alerts}.")
+    from datetime import timedelta
+    session.permanent = True
+    session.permanent_session_lifetime = timedelta(minutes=int(session_timeout))
+    
+    log_audit_entry('Settings', 'Preferences Modification', details=f"User updated application preferences: Theme={theme_pref}, Refresh={refresh_interval}s, Timeout={session_timeout}m, Email Alerts={email_alerts}.")
     flash("Application preferences updated successfully.", "success")
     return redirect(url_for('main.settings'))
 
@@ -1623,7 +1763,7 @@ def admin_user_add():
         db.session.add(new_user)
         db.session.commit()
         
-        log_audit_entry('User Account Created', f"Administrator created user account '{username}' with role '{role}' and status '{status}'.")
+        log_audit_entry('User Management', 'User Account Created', details=f"Administrator created user account '{username}' with role '{role}' and status '{status}'.")
         flash(f"User account '{username}' created successfully.", "success")
     except Exception as e:
         db.session.rollback()
@@ -1683,7 +1823,7 @@ def admin_user_edit(user_id):
             changes.append("Password reset by administrator")
             
         if changes:
-            log_audit_entry('User Account Modified', f"Administrator modified user '{user.username}': " + ", ".join(changes) + ".")
+            log_audit_entry('User Management', 'User Account Modified', details=f"Administrator modified user '{user.username}': " + ", ".join(changes) + ".")
             
         db.session.commit()
         flash(f"User account '{user.username}' updated successfully.", "success")
@@ -1709,7 +1849,7 @@ def admin_user_delete(user_id):
         db.session.delete(user)
         db.session.commit()
         
-        log_audit_entry('User Account Deleted', f"Administrator deleted user account '{username}' from system databases.")
+        log_audit_entry('User Management', 'User Account Deleted', details=f"Administrator deleted user account '{username}' from system databases.")
         flash(f"User account '{username}' deleted successfully.", "success")
     except Exception as e:
         db.session.rollback()
@@ -1733,7 +1873,7 @@ def admin_user_status(user_id):
         user.status = new_status
         db.session.commit()
         
-        log_audit_entry('User Account Status Toggle', f"Administrator toggled status of '{user.username}' to '{new_status}'.")
+        log_audit_entry('User Management', 'User Account Status Toggle', details=f"Administrator toggled status of '{user.username}' to '{new_status}'.")
         flash(f"User '{user.username}' account status updated to {new_status}.", "success")
     except Exception as e:
         db.session.rollback()
@@ -1778,23 +1918,99 @@ def admin_audit():
 def admin_audit_export():
     logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).all()
     
+    if request.args.get('format') == 'pdf':
+        headers = ['Audit ID', 'Timestamp', 'User', 'Role', 'Module', 'Action', 'Status', 'IP Address']
+        rows = [[
+            l.id,
+            l.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            l.username or 'System',
+            l.user_role or 'System',
+            l.module or 'System',
+            l.action,
+            l.status or 'Success',
+            l.ip_address or '127.0.0.1'
+        ] for l in logs]
+        pdf_data = generate_pdf_report("System Audit Logs Report", headers, rows)
+        log_audit_entry('Reports', 'Report Exported', details="Exported System Audit Logs report as PDF.")
+        return Response(
+            pdf_data,
+            mimetype="application/pdf",
+            headers={"Content-disposition": "attachment; filename=audit_logs_history.pdf"}
+        )
+        
     si = StringIO()
     cw = csv.writer(si)
-    cw.writerow(['Audit ID', 'Timestamp', 'User', 'Action', 'Details', 'IP Address'])
+    cw.writerow(['Audit ID', 'Timestamp', 'User', 'Role', 'Module', 'Action', 'Status', 'IP Address'])
     for l in logs:
         cw.writerow([
             l.id,
             l.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-            l.user.username if l.user else 'System',
+            l.username or 'System',
+            l.user_role or 'System',
+            l.module or 'System',
             l.action,
-            l.details,
-            l.ip_address
+            l.status or 'Success',
+            l.ip_address or '127.0.0.1'
         ])
         
     output = si.getvalue()
+    log_audit_entry('Reports', 'Report Exported', details="Exported System Audit Logs report as CSV.")
     return Response(
         output,
         mimetype="text/csv",
         headers={"Content-disposition": "attachment; filename=audit_logs_history.csv"}
     )
+
+@main_bp.route('/search')
+@login_required
+def global_search():
+    q = request.args.get('q', '').strip()
+    if not q:
+        return render_template('search.html', q='', results={}, match_count=0)
+        
+    # Search Users
+    users = User.query.filter(User.username.like(f"%{q}%") | User.email.like(f"%{q}%")).all()
+    
+    # Search Alerts
+    alerts = Alert.query.filter(Alert.description.like(f"%{q}%") | Alert.alert_type.like(f"%{q}%") | Alert.source_module.like(f"%{q}%")).all()
+    
+    # Search Incidents
+    incidents = Incident.query.filter(Incident.title.like(f"%{q}%") | Incident.description.like(f"%{q}%") | Incident.priority.like(f"%{q}%") | Incident.status.like(f"%{q}%")).all()
+    
+    # Search Logs (LogFiles)
+    logs = LogFile.query.filter(LogFile.filename.like(f"%{q}%")).all()
+    
+    # Search Threat Intel
+    threats = ThreatIntelHistory.query.filter(ThreatIntelHistory.ioc.like(f"%{q}%") | ThreatIntelHistory.ioc_type.like(f"%{q}%") | ThreatIntelHistory.status.like(f"%{q}%")).all()
+    
+    # Predefined Reports matching
+    all_reports = [
+        {"name": "Network Scanner CSV Report", "link": "/scanner/export?format=csv"},
+        {"name": "Network Scanner PDF Report", "link": "/scanner/export?format=pdf"},
+        {"name": "SecureVault Files CSV Report", "link": "/vault/export?format=csv"},
+        {"name": "SecureVault Files PDF Report", "link": "/vault/export?format=pdf"},
+        {"name": "Threat Intelligence CSV History", "link": "/threats/export?format=csv"},
+        {"name": "Threat Intelligence PDF History", "link": "/threats/export?format=pdf"},
+        {"name": "SOC Alerts CSV Report", "link": "/alerts/export?format=csv"},
+        {"name": "SOC Alerts PDF Report", "link": "/alerts/export?format=pdf"},
+        {"name": "Incident Tickets CSV Report", "link": "/incidents/export?format=csv"},
+        {"name": "Incident Tickets PDF Report", "link": "/incidents/export?format=pdf"},
+        {"name": "Audit Logs CSV Report", "link": "/admin/audit/export?format=csv"},
+        {"name": "Audit Logs PDF Report", "link": "/admin/audit/export?format=pdf"}
+    ]
+    matched_reports = [r for r in all_reports if q.lower() in r['name'].lower()]
+    
+    results = {
+        "users": users,
+        "alerts": alerts,
+        "incidents": incidents,
+        "logs": logs,
+        "threats": threats,
+        "reports": matched_reports
+    }
+    
+    match_count = len(users) + len(alerts) + len(incidents) + len(logs) + len(threats) + len(matched_reports)
+    log_audit_entry('Search', 'Global Search Executed', details=f"Searched across system databases for query: '{q}'. Match count: {match_count}.")
+    
+    return render_template('search.html', q=q, results=results, match_count=match_count)
 

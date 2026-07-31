@@ -100,65 +100,64 @@
                             </div>
                         </td>
                     </tr>
-
-                    <!-- Edit User Modal -->
-                    <div class="modal fade" id="editUserModal{{ u.id }}" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4">
-                                <div class="modal-header border-bottom border-white border-opacity-10 p-4">
-                                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square text-primary me-2"></i>Edit User: {{ u.username }}</h5>
-                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <form action="{{ url_for('main.admin_user_edit', user_id=u.id) }}" method="POST">
-                                    <div class="modal-body p-4">
-                                        <div class="mb-3">
-                                            <label class="form-label text-secondary small fw-medium">Email Address</label>
-                                            <input type="email" class="form-control text-light bg-dark-card border-white border-opacity-10" name="email" value="{{ u.email }}" required>
-                                        </div>
-                                        <div class="row g-3 mb-3">
-                                            <div class="col-6">
-                                                <label class="form-label text-secondary small fw-medium">SOC Role</label>
-                                                <select name="role" class="form-select text-light bg-dark-card border-white border-opacity-10" {% if u.id == current_user.id %}disabled{% endif %}>
-                                                    <option value="Administrator" {% if u.role == 'Administrator' %}selected{% endif %}>Administrator</option>
-                                                    <option value="SOC Manager" {% if u.role == 'SOC Manager' %}selected{% endif %}>SOC Manager</option>
-                                                    <option value="Security Engineer" {% if u.role == 'Security Engineer' %}selected{% endif %}>Security Engineer</option>
-                                                    <option value="SOC Analyst" {% if u.role == 'SOC Analyst' %}selected{% endif %}>SOC Analyst</option>
-                                                </select>
-                                                {% if u.id == current_user.id %}
-                                                <input type="hidden" name="role" value="{{ u.role }}">
-                                                {% endif %}
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="form-label text-secondary small fw-medium">Status</label>
-                                                <select name="status" class="form-select text-light bg-dark-card border-white border-opacity-10" {% if u.id == current_user.id %}disabled{% endif %}>
-                                                    <option value="Active" {% if u.status == 'Active' %}selected{% endif %}>Active</option>
-                                                    <option value="Disabled" {% if u.status == 'Disabled' %}selected{% endif %}>Disabled</option>
-                                                </select>
-                                                {% if u.id == current_user.id %}
-                                                <input type="hidden" name="status" value="{{ u.status }}">
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                        <div class="mb-0">
-                                            <label class="form-label text-secondary small fw-medium">Reset Password (Optional)</label>
-                                            <input type="password" class="form-control text-light bg-dark-card border-white border-opacity-10" name="password" placeholder="Leave blank to keep existing password">
-                                            <small class="text-muted d-block mt-1">Must be at least 8 characters long.</small>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer border-top border-white border-opacity-10 p-4">
-                                        <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
-                                        <button type="submit" class="btn btn-primary px-4 fw-bold">Save Changes</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 </div>
+
+<!-- Edit User Modals -->
+{% for u in users %}
+<div class="modal fade" id="editUserModal{{ u.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4 shadow-lg">
+            <div class="modal-header border-bottom border-white border-opacity-10 p-4">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square text-primary me-2"></i>Edit User: {{ u.username }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('main.admin_user_edit', user_id=u.id) }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Username</label>
+                        <input type="text" class="form-control text-light bg-dark-card border-white border-opacity-10" name="username" value="{{ u.username }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Email Address</label>
+                        <input type="email" class="form-control text-light bg-dark-card border-white border-opacity-10" name="email" value="{{ u.email }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-medium">Update Password <small class="text-muted">(Leave blank to keep current)</small></label>
+                        <input type="password" class="form-control text-light bg-dark-card border-white border-opacity-10" name="password" placeholder="New Password">
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label text-secondary small fw-medium">SOC Role</label>
+                            <select name="role" class="form-select text-light bg-dark-card border-white border-opacity-10">
+                                <option value="Administrator" {% if u.role == 'Administrator' %}selected{% endif %}>Administrator</option>
+                                <option value="SOC Manager" {% if u.role == 'SOC Manager' %}selected{% endif %}>SOC Manager</option>
+                                <option value="Security Engineer" {% if u.role == 'Security Engineer' %}selected{% endif %}>Security Engineer</option>
+                                <option value="SOC Analyst" {% if u.role == 'SOC Analyst' %}selected{% endif %}>SOC Analyst</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-secondary small fw-medium">Status</label>
+                            <select name="status" class="form-select text-light bg-dark-card border-white border-opacity-10">
+                                <option value="Active" {% if u.status == 'Active' %}selected{% endif %}>Active</option>
+                                <option value="Disabled" {% if u.status == 'Disabled' %}selected{% endif %}>Disabled</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-white border-opacity-10 p-4">
+                    <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
 
 <!-- Add User Modal -->
 <div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">

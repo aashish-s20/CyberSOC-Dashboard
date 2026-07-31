@@ -137,56 +137,6 @@
                         </td>
                     </tr>
 
-                    <!-- Escalation Modal -->
-                    {% if a.status != 'Closed' %}
-                    <div class="modal fade" id="escalateModal{{ a.id }}" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4">
-                                <div class="modal-header border-bottom border-white border-opacity-10 p-4">
-                                    <h5 class="modal-title fw-bold"><i class="bi bi-shield-alert text-danger me-2"></i>Escalate Alert to Incident</h5>
-                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <form action="{{ url_for('main.incident_create') }}" method="POST">
-                                    <div class="modal-body p-4">
-                                        <input type="hidden" name="related_alert_id" value="{{ a.id }}">
-                                        <div class="mb-3">
-                                            <label class="form-label text-secondary small fw-medium">Incident Title</label>
-                                            <input type="text" class="form-control text-light bg-dark-card border-white border-opacity-10" name="title" value="Escalated Incident: {{ a.alert_type }} [Alert #{{ a.id }}]" required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label text-secondary small fw-medium">Investigation Description</label>
-                                            <textarea class="form-control text-light bg-dark-card border-white border-opacity-10" name="description" rows="4" required>{{ a.description }} (Source Module: {{ a.source_module }}). Triggered at: {{ a.timestamp.strftime('%Y-%m-%d %H:%M:%S') }} UTC.</textarea>
-                                        </div>
-                                        <div class="row g-3 mb-3">
-                                            <div class="col-6">
-                                                <label class="form-label text-secondary small fw-medium">Priority</label>
-                                                <select name="priority" class="form-select text-light bg-dark-card border-white border-opacity-10">
-                                                    <option value="Critical" {% if a.severity == 'Critical' %}selected{% endif %}>Critical</option>
-                                                    <option value="High" {% if a.severity == 'High' %}selected{% endif %}>High</option>
-                                                    <option value="Medium" {% if a.severity == 'Medium' %}selected{% endif %}>Medium</option>
-                                                    <option value="Low" {% if a.severity == 'Low' %}selected{% endif %}>Low</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="form-label text-secondary small fw-medium">Assign Owner</label>
-                                                <select name="assigned_user_id" class="form-select text-light bg-dark-card border-white border-opacity-10">
-                                                    <option value="">Unassigned</option>
-                                                    <option value="{{ current_user.id }}" selected>{{ current_user.username }} (You)</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1 text-warning"></i> Creating this incident will automatically update this alert's status to <strong>Acknowledged</strong>.</p>
-                                    </div>
-                                    <div class="modal-footer border-top border-white border-opacity-10 p-4">
-                                        <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
-                                        <button type="submit" class="btn btn-danger px-4 fw-bold">Open Incident Case</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
-
                     {% else %}
                     <tr>
                         <td colspan="8" class="text-center py-5 text-secondary">No alert triggers found matching filter criteria.</td>
@@ -197,4 +147,56 @@
         </div>
     </div>
 </div>
+
+<!-- Escalation Modals -->
+{% for a in alerts.items %}
+    {% if a.status != 'Closed' %}
+    <div class="modal fade" id="escalateModal{{ a.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border border-white border-opacity-10 text-white rounded-4 shadow-lg">
+                <div class="modal-header border-bottom border-white border-opacity-10 p-4">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-shield-alert text-danger me-2"></i>Escalate Alert to Incident</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('main.incident_create') }}" method="POST">
+                    <div class="modal-body p-4">
+                        <input type="hidden" name="related_alert_id" value="{{ a.id }}">
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-medium">Incident Title</label>
+                            <input type="text" class="form-control text-light bg-dark-card border-white border-opacity-10" name="title" value="Escalated Incident: {{ a.alert_type }} [Alert #{{ a.id }}]" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-medium">Investigation Description</label>
+                            <textarea class="form-control text-light bg-dark-card border-white border-opacity-10" name="description" rows="4" required>{{ a.description }} (Source Module: {{ a.source_module }}). Triggered at: {{ a.timestamp.strftime('%Y-%m-%d %H:%M:%S') }} UTC.</textarea>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label class="form-label text-secondary small fw-medium">Priority</label>
+                                <select name="priority" class="form-select text-light bg-dark-card border-white border-opacity-10">
+                                    <option value="Critical" {% if a.severity == 'Critical' %}selected{% endif %}>Critical</option>
+                                    <option value="High" {% if a.severity == 'High' %}selected{% endif %}>High</option>
+                                    <option value="Medium" {% if a.severity == 'Medium' %}selected{% endif %}>Medium</option>
+                                    <option value="Low" {% if a.severity == 'Low' %}selected{% endif %}>Low</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label text-secondary small fw-medium">Assign Owner</label>
+                                <select name="assigned_user_id" class="form-select text-light bg-dark-card border-white border-opacity-10">
+                                    <option value="">Unassigned</option>
+                                    <option value="{{ current_user.id }}" selected>{{ current_user.username }} (You)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1 text-warning"></i> Creating this incident will automatically update this alert's status to <strong>Acknowledged</strong>.</p>
+                    </div>
+                    <div class="modal-footer border-top border-white border-opacity-10 p-4">
+                        <button type="button" class="btn btn-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4 fw-bold">Open Incident Case</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
 {% endblock %}

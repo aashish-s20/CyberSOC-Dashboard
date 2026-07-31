@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+
+{% block title %}Report Generator - CyberSOC{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 animate-fade-in">
+    <!-- Header -->
+    <div class="mb-4">
+        <h1 class="h2 fw-bold text-white mb-1"><i class="bi bi-bar-chart-fill text-primary me-2"></i>Report Generator</h1>
+        <p class="text-secondary mb-0">Compile compliance audits, operational logs, and threat telemetry reports in PDF or CSV formats.</p>
+    </div>
+
+    <!-- Grid of Modules -->
+    <div class="row g-4">
+        <!-- 1. Network Scanner -->
+        <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100 d-flex flex-column">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-primary bg-opacity-10 text-primary rounded p-2 me-3">
+                        <i class="bi bi-globe fs-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="h6 fw-bold text-white mb-0">Network Scanner</h3>
+                        <small class="text-muted">Discovery & Port Scans</small>
+                    </div>
+                </div>
+                <p class="text-secondary small mb-4 flex-grow-1">Export discovered active hosts, open network ports, and scanned target subnets metadata.</p>
+                <div class="d-flex gap-2 mt-auto">
+                    <a href="{{ url_for('main.export_scans') }}?format=pdf" class="btn btn-primary btn-sm w-50"><i class="bi bi-file-pdf"></i> PDF</a>
+                    <a href="{{ url_for('main.export_scans') }}?format=csv" class="btn btn-secondary btn-sm w-50"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Network Monitor -->
+        <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100 d-flex flex-column">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-info bg-opacity-10 text-info rounded p-2 me-3">
+                        <i class="bi bi-broadcast fs-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="h6 fw-bold text-white mb-0">Network Monitor</h3>
+                        <small class="text-muted">Traffic Captures</small>
+                    </div>
+                </div>
+                <p class="text-secondary small mb-3 flex-grow-1">Export captured packets metadata list by monitoring interface session.</p>
+                
+                <div class="mb-3">
+                    <select id="monitorSessionSelect" class="form-select text-light bg-dark border-white border-opacity-10" style="font-size: 0.8rem; padding: 0.4rem 0.75rem;">
+                        {% for s in sessions %}
+                        <option value="{{ s.id }}">Session #{{ s.id }} ({{ s.interface }})</option>
+                        {% else %}
+                        <option value="" disabled selected>No capture sessions found</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="d-flex gap-2 mt-auto">
+                    <button type="button" class="btn btn-primary btn-sm w-50" onclick="exportMonitor('pdf')" {% if not sessions %}disabled{% endif %}>
+                        <i class="bi bi-file-pdf"></i> PDF
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm w-50" onclick="exportMonitor('csv')" {% if not sessions %}disabled{% endif %}>
+                        <i class="bi bi-file-earmark-spreadsheet"></i> CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Log Analyzer -->
+        <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100 d-flex flex-column">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-warning bg-opacity-10 text-warning rounded p-2 me-3">
+                        <i class="bi bi-file-earmark-text fs-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="h6 fw-bold text-white mb-0">Log Analyzer</h3>
+                        <small class="text-muted">Ingested Events</small>
+                    </div>
+                </div>
+                <p class="text-secondary small mb-3 flex-grow-1">Export parsed server event logs, severity codes, and matched threat signatures.</p>
+                
+                <div class="mb-3">
+                    <select id="analyzerFileSelect" class="form-select text-light bg-dark border-white border-opacity-10" style="font-size: 0.8rem; padding: 0.4rem 0.75rem;">
+                        {% for f in log_files %}
+                        <option value="{{ f.id }}">{{ f.filename }}</option>
+                        {% else %}
+                        <option value="" disabled selected>No log files found</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="d-flex gap-2 mt-auto">
+                    <button type="button" class="btn btn-primary btn-sm w-50" onclick="exportAnalyzer('pdf')" {% if not log_files %}disabled{% endif %}>
+                        <i class="bi bi-file-pdf"></i> PDF
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm w-50" onclick="exportAnalyzer('csv')" {% if not log_files %}disabled{% endif %}>
+                        <i class="bi bi-file-earmark-spreadsheet"></i> CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. SecureVault -->
+        <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100 d-flex flex-column">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-success bg-opacity-10 text-success rounded p-2 me-3">
+                        <i class="bi bi-lock fs-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="h6 fw-bold text-white mb-0">SecureVault</h3>
+                        <small class="text-muted">Encrypted Vault files</small>
+                    </div>
+                </div>
+                <p class="text-secondary small mb-4 flex-grow-1">Export cryptography ledger, uploaded filenames, encryption statuses, and SHA-256 hashes.</p>
+                <div class="d-flex gap-2 mt-auto">
+                    <a href="{{ url_for('main.vault_export_history') }}?format=pdf" class="btn btn-primary btn-sm w-50"><i class="bi bi-file-pdf"></i> PDF</a>
+                    <a href="{{ url_for('main.vault_export_history') }}?format=csv" class="btn btn-secondary btn-sm w-50"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Threat Intelligence -->
+        <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100 d-flex flex-column">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-primary bg-opacity-10 text-primary rounded p-2 me-3">
+                        <i class="bi bi-globe-americas fs-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="h6 fw-bold text-white mb-0">Threat Intel</h3>
+                        <small class="text-muted">IOC Lookup Registry</small>
+                    </div>
+                </div>
+                <p class="text-secondary small mb-4 flex-grow-1">Export analyzed indicator threat reputations, risk indices, and categorization histories.</p>
+                <div class="d-flex gap-2 mt-auto">
+                    <a href="{{ url_for('main.threat_export_history') }}?format=pdf" class="btn btn-primary btn-sm w-50"><i class="bi bi-file-pdf"></i> PDF</a>
+                    <a href="{{ url_for('main.threat_export_history') }}?format=csv" class="btn btn-secondary btn-sm w-50"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. Alerts -->
+        <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100 d-flex flex-column">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-danger bg-opacity-10 text-danger rounded p-2 me-3">
+                        <i class="bi bi-bell fs-4 animate-pulse"></i>
+                    </div>
+                    <div>
+                        <h3 class="h6 fw-bold text-white mb-0">Alert Center</h3>
+                        <small class="text-muted">Security Incidents Alerts</small>
+                    </div>
+                </div>
+                <p class="text-secondary small mb-4 flex-grow-1">Export security alerts, triggered alert sources, timestamps, and severity labels.</p>
+                <div class="d-flex gap-2 mt-auto">
+                    <a href="{{ url_for('main.alerts_export') }}?format=pdf" class="btn btn-primary btn-sm w-50"><i class="bi bi-file-pdf"></i> PDF</a>
+                    <a href="{{ url_for('main.alerts_export') }}?format=csv" class="btn btn-secondary btn-sm w-50"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. Incidents -->
+        <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100 d-flex flex-column">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-warning bg-opacity-10 text-warning rounded p-2 me-3">
+                        <i class="bi bi-clipboard-data fs-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="h6 fw-bold text-white mb-0">Incidents</h3>
+                        <small class="text-muted">Investigative Cases</small>
+                    </div>
+                </div>
+                <p class="text-secondary small mb-4 flex-grow-1">Export designated containment tickets, priority metrics, assigned roles, and timeline notes.</p>
+                <div class="d-flex gap-2 mt-auto">
+                    <a href="{{ url_for('main.incidents_export') }}?format=pdf" class="btn btn-primary btn-sm w-50"><i class="bi bi-file-pdf"></i> PDF</a>
+                    <a href="{{ url_for('main.incidents_export') }}?format=csv" class="btn btn-secondary btn-sm w-50"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 8. Audit Logs -->
+        <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+            <div class="card bg-dark-card border border-white border-opacity-5 rounded-4 p-4 h-100 d-flex flex-column">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-info bg-opacity-10 text-info rounded p-2 me-3">
+                        <i class="bi bi-journal-code fs-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="h6 fw-bold text-white mb-0">Audit Logs</h3>
+                        <small class="text-muted">System Trails</small>
+                    </div>
+                </div>
+                <p class="text-secondary small mb-4 flex-grow-1">Export full auditable compliance histories, including user actions, timestamps, and IP addresses.</p>
+                <div class="d-flex gap-2 mt-auto">
+                    {% if current_user.role in ['Administrator', 'SOC Manager'] %}
+                    <a href="{{ url_for('main.admin_audit_export') }}?format=pdf" class="btn btn-primary btn-sm w-50"><i class="bi bi-file-pdf"></i> PDF</a>
+                    <a href="{{ url_for('main.admin_audit_export') }}?format=csv" class="btn btn-secondary btn-sm w-50"><i class="bi bi-file-earmark-spreadsheet"></i> CSV</a>
+                    {% else %}
+                    <button class="btn btn-primary btn-sm w-50" disabled><i class="bi bi-file-pdf"></i> PDF</button>
+                    <button class="btn btn-secondary btn-sm w-50" disabled><i class="bi bi-file-earmark-spreadsheet"></i> CSV</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function exportMonitor(format) {
+    var select = document.getElementById('monitorSessionSelect');
+    if (!select || !select.value) {
+        alert("Please select a monitoring session.");
+        return;
+    }
+    var sessionId = select.value;
+    window.location.href = "{{ url_for('main.export_monitor_session', session_id=0) }}".replace('/0', '/' + sessionId) + "?format=" + format;
+}
+
+function exportAnalyzer(format) {
+    var select = document.getElementById('analyzerFileSelect');
+    if (!select || !select.value) {
+        alert("Please select an ingested log file.");
+        return;
+    }
+    var fileId = select.value;
+    window.location.href = "{{ url_for('main.export_analyzer_session', file_id=0) }}".replace('/0', '/' + fileId) + "?format=" + format;
+}
+</script>
+{% endblock %}
